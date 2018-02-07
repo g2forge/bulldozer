@@ -17,5 +17,6 @@
 
 	<modules>
 		<module>bd-project</module>
+		<module>bd-build</module>
 	</modules>
 </project>
