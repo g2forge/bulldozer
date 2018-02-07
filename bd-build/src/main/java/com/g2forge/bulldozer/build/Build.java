@@ -63,7 +63,7 @@ public class Build {
 	}
 
 	public static void main(String[] args) throws JsonParseException, JsonMappingException, IOException {
-		final Projects projects = new Projects(Paths.get(args[0]));
+		final Projects projects = new Projects(Paths.get(args[0]).resolve("pom.xml"));
 		projects.getProjects().forEach(System.out::println);
 	}
 }
