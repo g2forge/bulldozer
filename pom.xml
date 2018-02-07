@@ -1,0 +1,21 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+	<modelVersion>4.0.0</modelVersion>
+	<artifactId>bulldozer</artifactId>
+	<packaging>pom</packaging>
+
+	<parent>
+		<groupId>com.g2forge.bulldozer</groupId>
+		<artifactId>bd-project</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
+		<relativePath>bd-project/pom.xml</relativePath>
+	</parent>
+
+	<name>Bulldozer</name>
+	<description>A combination of IaaC and build tools, heavy construction equipment for software developers.</description>
+
+	<modules>
+		<module>bd-project</module>
+	</modules>
+</project>
