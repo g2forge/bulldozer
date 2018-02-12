@@ -17,6 +17,17 @@
 			<artifactId>gb-functional</artifactId>
 			<version>${gearbox.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>com.g2forge.alexandria</groupId>
+			<artifactId>ax-collection</artifactId>
+			<version>${alexandria.version}</version>
+		</dependency>
+		
+		<dependency>
+			<groupId>ch.qos.logback</groupId>
+			<artifactId>logback-classic</artifactId>
+			<version>${logback.version}</version>
+		</dependency>
 
 		<dependency>
 			<groupId>com.fasterxml.jackson.dataformat</groupId>
