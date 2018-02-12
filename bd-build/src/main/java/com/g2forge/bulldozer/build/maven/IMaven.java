@@ -53,10 +53,10 @@ public interface IMaven {
 	public String evaluate(@Working Path path, @Named("-Dexpression=") String expression);
 
 	@Command({ "mvn", "install", "-Prelease" })
-	public String install(@Working Path path);
+	public void install(@Working Path path);
 
 	@Command({ "mvn", "release:perform", "-Prelease" })
-	public String releasePerform(@Working Path path);
+	public void releasePerform(@Working Path path);
 
 	@Command({ "mvn", "release:prepare", "-Prelease" })
 	public void releasePrepare(@Working Path path);
