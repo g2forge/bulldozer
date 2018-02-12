@@ -19,7 +19,7 @@ public class Test {
 	public static void main(String[] args) throws JsonParseException, JsonMappingException, IOException {
 		final Path path = Paths.get(args[0]).resolve("enigma");
 		final IMaven maven = new Proxifier().generate(new ProcessBuilderRunner(), IMaven.class);
-		final Map<String, List<Descriptor>> grouped = maven.mvn(path, true, "dependency:tree", "-Dincludes=com.g2forge.*:*")/*.map(new TapFunction<>(System.out::println))*/.filter(line -> line.startsWith("[INFO]") && line.contains("- com.g2forge.")).map(line -> Descriptor.fromString(line.substring(line.indexOf("- ") + 2))).collect(Collectors.groupingBy(Descriptor::getGroup));
+		final Map<String, List<Descriptor>> grouped = maven.dependencyTree(path, true, "-Dincludes=com.g2forge.*:*")/*.map(new TapFunction<>(System.out::println))*/.filter(line -> line.startsWith("[INFO]") && line.contains("- com.g2forge.")).map(line -> Descriptor.fromString(line.substring(line.indexOf("- ") + 2))).collect(Collectors.groupingBy(Descriptor::getGroup));
 		final Map<String, String> versions = new LinkedHashMap<>();
 		for (List<Descriptor> group : grouped.values()) {
 			final Set<String> groupVersions = group.stream().map(Descriptor::getVersion).collect(Collectors.toSet());
