@@ -11,6 +11,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.errors.GitAPIException;
+import org.slf4j.event.Level;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -19,6 +21,7 @@ import com.g2forge.alexandria.java.associative.cache.Cache;
 import com.g2forge.alexandria.java.associative.cache.NeverCacheEvictionPolicy;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.function.IFunction1;
+import com.g2forge.alexandria.log.HLog;
 import com.g2forge.bulldozer.build.maven.Descriptor;
 import com.g2forge.bulldozer.build.maven.IMaven;
 import com.g2forge.bulldozer.build.model.Project;
@@ -35,8 +38,9 @@ import lombok.extern.slf4j.Slf4j;
 @Data
 @Slf4j
 public class Build {
-	public static void main(String[] args) throws JsonParseException, JsonMappingException, IOException {
-		new Build(Paths.get(args[0]), args[1], HCollection.asList(Arrays.copyOfRange(args, 2, args.length))).build();
+	public static void main(String[] args) throws JsonParseException, JsonMappingException, IOException, GitAPIException {
+		final Build build = new Build(Paths.get(args[0]), args[1], HCollection.asList(Arrays.copyOfRange(args, 2, args.length)));
+		build.build();
 	}
 
 	@Getter(AccessLevel.PROTECTED)
@@ -48,20 +52,69 @@ public class Build {
 
 	protected final List<String> targets;
 
-	public void build() {
+	public void build() throws IOException, GitAPIException {
+		HLog.getLogControl().setLogLevel(Level.INFO);
+		log.info("Building: {}", getTargets());
+		log.info("Planning builder order");
+
 		// Load information about all the projects
 		final Projects projects = new Projects(getRoot().resolve("pom.xml"));
 
 		// Load the group information for all the public projects
 		final Map<String, String> projectToGroup = projects.getProjects().stream().filter(project -> Project.Protection.Public.equals(project.getProtection())).map(Project::getName).collect(Collectors.toMap(IFunction1.identity(), name -> getMaven().evaluate(root.resolve(name), "project.groupId")));
 		log.info("Public projects: {}", projectToGroup.keySet());
+
+		// Compute the order in which to build the public projects
+		final List<String> order = computeBuildOrder(projectToGroup);
+		log.info("Builder order: {}", order);
+
+		// Prepare all the releases
+		for (String project : order) {
+			log.info("Preparing {}", project);
+			final Path directory = getRoot().resolve(project);
+			try (final Git git = HGit.createGit(directory, false)) {
+				// Create and switch to the release branch if needed
+				final String current = git.getRepository().getBranch();
+				if (!current.equals(branch)) git.checkout().setCreateBranch(true).setName(branch).call();
+
+				// Prepare the project (stream the output to the console)
+				getMaven().releasePrepare(directory);
+				return;
+
+				// Check out the recent tag using jgit
+				// git.checkout().setStartPoint("TAG GOES HERE").call();
+				// TODO
+
+				// Maven install
+				// getMaven().install(directory);
+				// TODO: passthrough the stdio
+
+				// Update everyone who consumes this project (including the private consumers!) to the new version (and commit)
+				// TODO: update versions
+				// TODO: commit those downstream projects
+			}
+		}
+
+		// Perform the releases
+		for (String project : order) {
+
+		}
+
+		// Cleanup
+		for (String project : order) {
+			// Check out the branch head
+			// Remove the maven temporary install
+		}
+	}
+
+	protected List<String> computeBuildOrder(final Map<String, String> projectToGroup) {
 		final Map<String, String> groupToProject = projectToGroup.keySet().stream().collect(Collectors.toMap(projectToGroup::get, IFunction1.identity()));
 
 		// Cache the project dependencies, where the dependencies are a map from the project to the version depended on
 		final Cache<String, Map<String, String>> projectToDependencies = new Cache<String, Map<String, String>>(project -> {
 			log.info("Loading dependencies for {}", project);
 			// Run maven dependencies and filter the output down to usable information
-			final Map<String, List<Descriptor>> grouped = getMaven().dependencyTree(getRoot().resolve(project), true, projectToGroup.values().stream().map(g -> g + ":*").collect(Collectors.toList())).filter(line -> {
+			final Map<String, List<Descriptor>> grouped = getMaven().dependencyTree(getRoot().resolve(project), true, projectToGroup.values().stream().map(g -> g + ":*").collect(Collectors.toList()))/*.map(new TapFunction<>(System.out::println))*/.filter(line -> {
 				if (!line.startsWith("[INFO]")) return false;
 				for (String publicGroup : projectToGroup.values()) {
 					if (line.contains("- " + publicGroup)) return true;
@@ -80,45 +133,6 @@ public class Build {
 			return versions;
 		}, NeverCacheEvictionPolicy.create());
 
-		final List<String> order = HGraph.toposort(targets, p -> projectToDependencies.apply(p).keySet(), false);
-		log.info("Builder order: {}", order);
-
-		// Prepare all the releases
-		for (String project : order) {
-			final Path directory = getRoot().resolve(project);
-			try (final Git git = HGit.createGit(directory, false)) {
-				// Create and switch to the release branch if needed
-				final String current = git.getRepository().getBranch();
-				if (!current.equals(branch)) git.checkout().setCreateBranch(true).setName(branch).call();
-
-				// Prepare the project (stream the output to the console)
-				getMaven().releasePrepare(directory);
-				// TODO: passthrough the stdio
-
-				// Check out the recent tag using jgit
-				// git.checkout().setStartPoint("TAG GOES HERE").call();
-				// TODO
-
-				// Maven install
-				// getMaven().install(directory);
-				// TODO: passthrough the stdio
-
-				// Update everyone who consumes this project (including the private consumers!) to the new version (and commit)
-				// TODO: update versions
-				// TODO: commit those downstream projects
-
-			}
-		}
-
-		// Perform the releases
-		for (String project : order) {
-
-		}
-
-		// Cleanup
-		for (String project : order) {
-			// Check out the branch head
-			// Remove the maven temporary install
-		}
+		return HGraph.toposort(targets, p -> projectToDependencies.apply(p).keySet(), false);
 	}
 }

@@ -59,5 +59,5 @@ public interface IMaven {
 	public String releasePerform(@Working Path path);
 
 	@Command({ "mvn", "release:prepare", "-Prelease" })
-	public String releasePrepare(@Working Path path);
+	public void releasePrepare(@Working Path path);
 }
