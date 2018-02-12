@@ -10,6 +10,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.eclipse.jgit.api.Git;
+
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.g2forge.alexandria.data.graph.HGraph;
@@ -23,6 +25,7 @@ import com.g2forge.bulldozer.build.model.Project;
 import com.g2forge.bulldozer.build.model.Projects;
 import com.g2forge.gearbox.functional.proxy.Proxifier;
 import com.g2forge.gearbox.functional.runner.ProcessBuilderRunner;
+import com.g2forge.gearbox.git.HGit;
 
 import lombok.AccessLevel;
 import lombok.Data;
@@ -33,13 +36,15 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class Build {
 	public static void main(String[] args) throws JsonParseException, JsonMappingException, IOException {
-		new Build(Paths.get(args[0]), HCollection.asList(Arrays.copyOfRange(args, 1, args.length))).build();
+		new Build(Paths.get(args[0]), args[1], HCollection.asList(Arrays.copyOfRange(args, 2, args.length))).build();
 	}
 
 	@Getter(AccessLevel.PROTECTED)
 	protected final IMaven maven = new Proxifier().generate(new ProcessBuilderRunner(), IMaven.class);
 
 	protected final Path root;
+
+	protected final String branch;
 
 	protected final List<String> targets;
 
@@ -81,23 +86,28 @@ public class Build {
 		// Prepare all the releases
 		for (String project : order) {
 			final Path directory = getRoot().resolve(project);
-			// Create and switch to the release branch if needed
-			// TODO
+			try (final Git git = HGit.createGit(directory, false)) {
+				// Create and switch to the release branch if needed
+				final String current = git.getRepository().getBranch();
+				if (!current.equals(branch)) git.checkout().setCreateBranch(true).setName(branch).call();
 
-			// Prepare the project (stream the output to the console)
-			// getMaven().prepare(directory);
-			// TODO: passthrough the stdio
+				// Prepare the project (stream the output to the console)
+				getMaven().releasePrepare(directory);
+				// TODO: passthrough the stdio
 
-			// Check out the recent tag using jgit
-			// TODO
-			
-			// Maven install
-			// getMaven().install(directory);
-			// TODO: passthrough the stdio
+				// Check out the recent tag using jgit
+				// git.checkout().setStartPoint("TAG GOES HERE").call();
+				// TODO
 
-			// Update everyone who consumes this project (including the private consumers!) to the new version (and commit)
-			// TODO: update versions
-			// TODO: commit
+				// Maven install
+				// getMaven().install(directory);
+				// TODO: passthrough the stdio
+
+				// Update everyone who consumes this project (including the private consumers!) to the new version (and commit)
+				// TODO: update versions
+				// TODO: commit those downstream projects
+
+			}
 		}
 
 		// Perform the releases
