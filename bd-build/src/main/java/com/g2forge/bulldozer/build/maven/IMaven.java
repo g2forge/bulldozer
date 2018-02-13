@@ -19,6 +19,22 @@ import com.g2forge.gearbox.functional.control.Working;
 import com.g2forge.gearbox.functional.runner.IProcess;
 
 public interface IMaven {
+	public static class CSVArgumentHandler implements IExplicitArgumentHandler {
+		@Override
+		public void accept(IArgumentContext context, Object argument) {
+			final Stream<String> stream;
+			if (argument instanceof String[]) stream = Stream.of((String[]) argument);
+			else {
+				@SuppressWarnings("unchecked")
+				final List<String> includes = (List<String>) argument;
+				stream = includes.stream();
+			}
+			final Named named = context.getArgument().getAnnotation(Named.class);
+			final String string = (named == null ? "" : named.value()) + stream.collect(Collectors.joining(","));
+			context.getCommand().argument(string);
+		}
+	}
+
 	public static class EvaluateResultHandler implements IExplicitResultHandler {
 		@Override
 		public Object apply(IProcess proccess, IResultContext context) {
@@ -29,25 +45,20 @@ public interface IMaven {
 		}
 	}
 
-	public static class IncludesArgumentHandler implements IExplicitArgumentHandler {
+	public static class SnapshotArgumentHandler implements IExplicitArgumentHandler {
 		@Override
 		public void accept(IArgumentContext context, Object argument) {
-			final Stream<String> stream;
-			if (argument instanceof String[]) stream = Stream.of((String[]) argument);
-			else {
-				@SuppressWarnings("unchecked")
-				final List<String> includes = (List<String>) argument;
-				stream = includes.stream();
-			}
-			context.getCommand().argument("-Dincludes=" + stream.collect(Collectors.joining(",")));
+			final boolean snapshots = (Boolean) argument;
+			context.getCommand().argument(snapshots ? "versions:use-latest-snapshots" : "versions:use-latest-releases");
+			if (snapshots) context.getCommand().argument("-DallowSnapshots=true");
 		}
 	}
 
 	@Command({ "mvn", "dependency:tree" })
-	public Stream<String> dependencyTree(@Working Path path, @Flag("-Dverbose") boolean verbose, @Explicit(IncludesArgumentHandler.class) List<String> goals);
+	public Stream<String> dependencyTree(@Working Path path, @Flag("-Dverbose") boolean verbose, @Explicit(CSVArgumentHandler.class) @Named("-Dincludes=") List<String> includes);
 
 	@Command({ "mvn", "dependency:tree" })
-	public Stream<String> dependencyTree(@Working Path path, @Flag("-Dverbose") boolean verbose, @Explicit(IncludesArgumentHandler.class) String... goals);
+	public Stream<String> dependencyTree(@Working Path path, @Flag("-Dverbose") boolean verbose, @Explicit(CSVArgumentHandler.class) @Named("-Dincludes=") String... includes);
 
 	@Command(value = { "mvn", "org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate" }, handler = EvaluateResultHandler.class)
 	public String evaluate(@Working Path path, @Named("-Dexpression=") String expression);
@@ -60,4 +71,7 @@ public interface IMaven {
 
 	@Command({ "mvn", "release:prepare", "-Prelease" })
 	public void releasePrepare(@Working Path path);
+
+	@Command({ "mvn", "versions:update-parent", "versions:update-properties" })
+	public Stream<String> updateVersions(@Working Path path, @Explicit(SnapshotArgumentHandler.class) boolean snapshot, @Explicit(CSVArgumentHandler.class) @Named("-P") List<String> profiles, @Explicit(CSVArgumentHandler.class) @Named("-Dincludes=") List<String> includes);
 }
