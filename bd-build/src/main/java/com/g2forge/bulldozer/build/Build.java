@@ -93,7 +93,7 @@ public class Build {
 		private final ReleaseProperties releaseProperties = computeReleaseProperties();
 
 		public void checkoutTag(String tag) throws RefAlreadyExistsException, RefNotFoundException, InvalidRefNameException, CheckoutConflictException, GitAPIException {
-			getGit().checkout().setCreateBranch(false /*TODO*/).setName(BRANCH_DUMMYINSTALL).setStartPoint(Constants.R_TAGS + tag).call();
+			getGit().checkout().setCreateBranch(true).setName(BRANCH_DUMMYINSTALL).setStartPoint(Constants.R_TAGS + tag).call();
 			this.getCloseables().add(() -> getGit().branchDelete().setBranchNames(BRANCH_DUMMYINSTALL).call());
 		}
 
@@ -299,8 +299,7 @@ public class Build {
 
 			{// Check for uncommitted changes in any project, and fail
 				final List<BuildProject> dirty = getDirty(projects);
-				if (!dirty.isEmpty()) ;// TODO throw new IllegalStateException(String.format("One or more projects were dirty (%1$s), please commit changes and
-										// try again!", dirty.stream().map(BuildProject::getName).collect(Collectors.joining(", "))));
+				if (!dirty.isEmpty()) throw new IllegalStateException(String.format("One or more projects were dirty (%1$s), please commit changes and try again!", dirty.stream().map(BuildProject::getName).collect(Collectors.joining(", "))));
 			}
 
 			// Compute the order in which to build the public projects
@@ -382,7 +381,6 @@ public class Build {
 						current = current.resolve(component);
 					}
 					for (String artifact : HCollection.concatenate(HCollection.asList(name), project.getPom().getModules())) {
-						// TODO: Test this carefully
 						HFile.delete(current.resolve(artifact).resolve(project.getReleaseProperties().getRelease()));
 					}
 					project.updatePhase(Phase.DeletedRelease);
@@ -432,7 +430,7 @@ public class Build {
 	}
 
 	protected String getBranch() {
-		return getIssue() + "-Temp" /* TODO */;
+		return getIssue() + "-Release";
 	}
 
 	protected List<BuildProject> getDirty(final Map<String, BuildProject> projects) {
