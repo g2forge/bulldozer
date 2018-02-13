@@ -61,7 +61,7 @@ public interface IMaven {
 	@Command({ "mvn", "dependency:tree" })
 	public Stream<String> dependencyTree(@Working Path path, @Flag("-Dverbose") boolean verbose, @Explicit(CSVArgumentHandler.class) @Named("-Dincludes=") String... includes);
 
-	@Command(value = { "mvn", "org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate" }, handler = EvaluateResultHandler.class)
+	@Command(value = { "mvn", "help:evaluate" }, handler = EvaluateResultHandler.class)
 	public String evaluate(@Working Path path, @Named("-Dexpression=") String expression);
 
 	@Command({ "mvn", "clean", "install", "-Prelease" })
