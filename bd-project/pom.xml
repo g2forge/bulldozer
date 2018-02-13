@@ -16,6 +16,7 @@
 
 	<properties>
 		<alexandria.version>0.0.7-SNAPSHOT</alexandria.version>
+		<gearbox.version>0.0.2-SNAPSHOT</gearbox.version>
 
 		<bulldozer.organization>g2forge</bulldozer.organization>
 		<bulldozer.name>Bulldozer</bulldozer.name>
@@ -59,6 +60,15 @@
 								<dependency>
 									<groupId>com.g2forge.alexandria</groupId>
 									<artifactId>alexandria</artifactId>
+								</dependency>
+							</dependencies>
+						</property>
+						<property>
+							<name>gearbox.version</name>
+							<dependencies>
+								<dependency>
+									<groupId>com.g2forge.gearbox</groupId>
+									<artifactId>gearbox</artifactId>
 								</dependency>
 							</dependencies>
 						</property>
