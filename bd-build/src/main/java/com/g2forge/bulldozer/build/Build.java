@@ -409,7 +409,7 @@ public class Build {
 					git.checkout().setCreateBranch(false).setName(getBranch()).call();
 
 					// Perform the release
-					// TODO getMaven().releasePerform(project.getDirectory());
+					getMaven().releasePerform(project.getDirectory());
 
 					project.updatePhase(Phase.Released);
 				}
