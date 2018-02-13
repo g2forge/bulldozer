@@ -69,8 +69,8 @@ public interface IMaven {
 	@Command({ "mvn", "release:perform", "-Prelease" })
 	public void releasePerform(@Working Path path);
 
-	@Command({ "mvn", "release:prepare", "-Prelease" })
-	public void releasePrepare(@Working Path path);
+	@Command({ "mvn", "--batch-mode", "release:prepare", "-Prelease" })
+	public void releasePrepare(@Working Path path, @Named("-Dtag") String tag, @Named("-DreleaseVersion") String release, @Named("-DdevelopmentVersion=") String development);
 
 	@Command({ "mvn", "versions:update-parent", "versions:update-properties" })
 	public Stream<String> updateVersions(@Working Path path, @Explicit(SnapshotArgumentHandler.class) boolean snapshot, @Explicit(CSVArgumentHandler.class) @Named("-P") List<String> profiles, @Explicit(CSVArgumentHandler.class) @Named("-Dincludes=") List<String> includes);

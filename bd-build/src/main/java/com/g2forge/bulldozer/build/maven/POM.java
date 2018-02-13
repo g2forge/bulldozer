@@ -16,6 +16,10 @@ import lombok.Singular;
 public class POM {
 	protected final String artifactId;
 
+	protected final String groupId;
+
+	protected final String version;
+
 	@Singular
 	protected final List<String> modules;
 

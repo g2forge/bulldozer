@@ -27,6 +27,8 @@ import org.eclipse.jgit.api.errors.NoMessageException;
 import org.eclipse.jgit.api.errors.UnmergedPathsException;
 import org.eclipse.jgit.api.errors.WrongRepositoryStateException;
 import org.eclipse.jgit.errors.NoWorkTreeException;
+import org.semver.Version;
+import org.semver.Version.Element;
 import org.slf4j.event.Level;
 
 import com.fasterxml.jackson.core.JsonParseException;
@@ -64,17 +66,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class Build {
 	@Data
-	@Builder
-	@AllArgsConstructor
-	protected static class ReleaseProperties {
-		protected final String release;
-
-		protected final String tag;
-
-		protected final String development;
-	}
-
-	@Data
 	protected class BuildProject implements ICloseable {
 		protected final Project project;
 
@@ -82,31 +73,22 @@ public class Build {
 		private final String group = getMaven().evaluate(getDirectory(), "project.groupId");
 
 		@Getter(lazy = true)
+		private final String version = getMaven().evaluate(getDirectory(), "project.version");
+
+		@Getter(lazy = true)
 		private final Path directory = computeDirectory();
 
 		@Getter(lazy = true)
 		private final Git git = computeGit();
+
+		@Getter(lazy = true)
+		private final POM pom = computePOM();
 
 		@Getter(lazy = true, value = AccessLevel.PROTECTED)
 		private final List<AutoCloseable> closeables = new ArrayList<>();
 
 		@Getter(lazy = true)
 		private final ReleaseProperties releaseProperties = computeReleaseProperties();
-
-		protected ReleaseProperties computeReleaseProperties() {
-			try (final InputStream stream = Files.newInputStream(getDirectory().resolve("release.properties"))) {
-				final Properties properties = new Properties();
-				properties.load(stream);
-				final ReleasePropertiesBuilder retVal = ReleaseProperties.builder();
-				retVal.tag(properties.getProperty("scm.tag"));
-				final String suffix = getGroup() + "\\:" + getName();
-				retVal.development(properties.getProperty("project.dev." + suffix));
-				retVal.release(properties.getProperty("project.rel." + suffix));
-				return retVal.build();
-			} catch (IOException exception) {
-				throw new RuntimeIOException(String.format("Failed to load release properties for %1$s", getName()), exception);
-			}
-		}
 
 		@Override
 		public void close() {
@@ -125,9 +107,43 @@ public class Build {
 			return retVal;
 		}
 
+		protected POM computePOM() {
+			try {
+				return mapper.readValue(getDirectory().resolve(POMXML).toFile(), POM.class);
+			} catch (IOException e) {
+				throw new RuntimeIOException(String.format("Failed to read %1$s for %2$s!", POMXML, getName()), e);
+			}
+		}
+
+		protected ReleaseProperties computeReleaseProperties() {
+			try (final InputStream stream = Files.newInputStream(getDirectory().resolve("release.properties"))) {
+				final Properties properties = new Properties();
+				properties.load(stream);
+				final ReleasePropertiesBuilder retVal = ReleaseProperties.builder();
+				retVal.tag(properties.getProperty("scm.tag"));
+				final String suffix = getGroup() + "\\:" + getName();
+				retVal.development(properties.getProperty("project.dev." + suffix));
+				retVal.release(properties.getProperty("project.rel." + suffix));
+				return retVal.build();
+			} catch (IOException exception) {
+				throw new RuntimeIOException(String.format("Failed to load release properties for %1$s", getName()), exception);
+			}
+		}
+
 		public String getName() {
 			return getProject().getName();
 		}
+	}
+
+	@Data
+	@Builder
+	@AllArgsConstructor
+	protected static class ReleaseProperties {
+		protected final String release;
+
+		protected final String tag;
+
+		protected final String development;
 	}
 
 	protected static final List<String> updateProfiles = Stream.of(Project.Protection.values()).filter(p -> !Project.Protection.Public.equals(p)).map(p -> p.name().toLowerCase()).collect(Collectors.toList());
@@ -186,8 +202,13 @@ public class Build {
 				commitUpstreamReversion(git);
 				// TODO: Test this and everything later
 
-				// Prepare the project (stream stdio to the console)
-				getMaven().releasePrepare(project.getDirectory());
+				{ // Prepare the project (stream stdio to the console)
+					final Version prior = Version.parse(project.getVersion());
+					final Version release = prior.toReleaseVersion();
+					final String releaseVersion = release.toString();
+					final String developmentVersion = release.next(Element.PATCH).toString() + "-SNAPSHOT";
+					getMaven().releasePrepare(project.getDirectory(), releaseVersion, releaseVersion, developmentVersion);
+				}
 
 				// Check out the recent tag using jgit
 				git.checkout().setStartPoint(project.getReleaseProperties().getTag()).call();
@@ -222,8 +243,7 @@ public class Build {
 				for (String component : project.getGroup().split("\\.")) {
 					current = current.resolve(component);
 				}
-				final POM pom = mapper.readValue(project.getDirectory().resolve(POMXML).toFile(), POM.class);
-				for (String artifact : HCollection.concatenate(HCollection.asList(name), pom.getModules())) {
+				for (String artifact : HCollection.concatenate(HCollection.asList(name), project.getPom().getModules())) {
 					// TODO: Test this carefully
 					HFile.delete(current.resolve(artifact).resolve(project.getReleaseProperties().getRelease()));
 				}
@@ -265,6 +285,7 @@ public class Build {
 		final Map<String, BuildProject> groupToProject = projects.stream().collect(Collectors.toMap(BuildProject::getGroup, IFunction1.identity()));
 
 		// Cache the project dependencies, where the dependencies are a map from the project to the version depended on
+		// TODO: Move this to BuildProject, and even cache it on disk with the invalidation key being the git commit hash so that it's fast from run to run
 		final Cache<String, Map<String, String>> projectToDependencies = new Cache<String, Map<String, String>>(project -> {
 			log.info("Loading dependencies for {}", project);
 			// Run maven dependencies and filter the output down to usable information

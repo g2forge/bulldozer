@@ -38,5 +38,11 @@
 			<artifactId>jackson-dataformat-xml</artifactId>
 			<version>${jackson.version}</version>
 		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.semver/api -->
+		<dependency>
+			<groupId>org.semver</groupId>
+			<artifactId>api</artifactId>
+			<version>0.9.33</version>
+		</dependency>
 	</dependencies>
 </project>
