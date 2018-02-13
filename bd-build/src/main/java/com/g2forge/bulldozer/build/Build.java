@@ -1,5 +1,6 @@
 package com.g2forge.bulldozer.build;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -64,16 +65,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class Build {
 	@Data
-	@Builder
-	@AllArgsConstructor
-	public static class Temp {
-		protected final String hash;
-
-		@Singular
-		protected final Map<String, String> dependencies;
-	}
-
-	@Data
 	@EqualsAndHashCode(exclude = "dependencies")
 	protected class BuildProject implements ICloseable {
 		protected final Project project;
@@ -97,6 +88,9 @@ public class Build {
 
 		@Getter(lazy = true, value = AccessLevel.PROTECTED)
 		private final List<AutoCloseable> closeables = new ArrayList<>();
+
+		@Getter(lazy = true)
+		private final ReleaseProperties releaseProperties = computeReleaseProperties();
 
 		public void checkoutTag(String tag) throws RefAlreadyExistsException, RefNotFoundException, InvalidRefNameException, CheckoutConflictException, GitAPIException {
 			getGit().checkout().setCreateBranch(false /*TODO*/).setName(BRANCH_DUMMYINSTALL).setStartPoint(Constants.R_TAGS + tag).call();
@@ -128,35 +122,37 @@ public class Build {
 			}
 		}
 
+		protected ReleaseProperties computeReleaseProperties() {
+			final Path file = getDirectory().resolve(RELEASE_PROPERTIES);
+			try (final InputStream stream = Files.newInputStream(file)) {
+				final Properties properties = new Properties();
+				properties.load(stream);
+
+				final ReleasePropertiesBuilder retVal = ReleaseProperties.builder();
+				retVal.tag(properties.getProperty("scm.tag"));
+				final String suffix = getGroup() + ":" + getName();
+				retVal.development(properties.getProperty("project.dev." + suffix));
+				retVal.release(properties.getProperty("project.rel." + suffix));
+				retVal.completed(properties.getProperty("completedPhase"));
+				return retVal.build();
+			} catch (IOException exception) {
+				throw new RuntimeIOException(String.format("Failed to load release properties for %1$s", getName()), exception);
+			}
+		}
+
 		public String getName() {
 			return getProject().getName();
 		}
 
-		public ReleaseProperties getReleaseProperties() {
-			final Path file = getDirectory().resolve(RELEASE_PROPERTIES);
-			if (Files.exists(file)) {
-				try (final InputStream stream = Files.newInputStream(file)) {
-					final Properties properties = new Properties();
-					properties.load(stream);
-
-					final ReleasePropertiesBuilder retVal = ReleaseProperties.builder();
-					retVal.tag(properties.getProperty("scm.tag"));
-					final String suffix = getGroup() + ":" + getName();
-					retVal.development(properties.getProperty("project.dev." + suffix));
-					retVal.release(properties.getProperty("project.rel." + suffix));
-					retVal.completed(properties.getProperty("completedPhase"));
-
-					final String phase = properties.getProperty(BULLDOZER_PHASE);
-					retVal.phase(phase == null ? Phase.Initial : Phase.valueOf(phase));
-					return retVal.build();
-				} catch (IOException exception) {
-					throw new RuntimeIOException(String.format("Failed to load release properties for %1$s", getName()), exception);
+		public Phase getPhase() {
+			final Path path = getDirectory().resolve(BULLDOZER_STATE);
+			if (Files.exists(path)) {
+				try {
+					return objectMapper.readValue(path.toFile(), State.class).getPhase();
+				} catch (IOException e) {
+					throw new RuntimeException(e);
 				}
-			} else {
-				final ReleasePropertiesBuilder retVal = ReleaseProperties.builder();
-				retVal.phase(Phase.Initial);
-				return retVal.build();
-			}
+			} else return Phase.Initial;
 		}
 
 		public Map<String, String> loadDependencies(final Map<String, BuildProject> nameToProject, final Map<String, BuildProject> groupToProject) {
@@ -180,25 +176,25 @@ public class Build {
 				}
 
 				if (dependencies == null) {
-					final String project = getName();
-					log.info("Loading dependencies for {}", project);
+					final String name = getName();
+					log.info("Loading dependencies for {}", name);
 					// Run maven dependencies and filter the output down to usable information
-					final Map<String, List<Descriptor>> grouped = getMaven().dependencyTree(getRoot().resolve(project), true, groupToProject.values().stream().map(g -> g + ":*").collect(Collectors.toList()))/*.map(new TapFunction<>(System.out::println))*/.filter(line -> {
+					final Map<String, List<Descriptor>> grouped = getMaven().dependencyTree(getRoot().resolve(name), true, groupToProject.keySet().stream().map(g -> g + ":*").collect(Collectors.toList()))/*.map(new TapFunction<>(System.out::println))*/.filter(line -> {
 						if (!line.startsWith("[INFO]")) return false;
 						for (BuildProject publicProject : nameToProject.values()) {
 							if (line.contains("- " + publicProject.getGroup())) return true;
 						}
 						return false;
-					}).map(line -> Descriptor.fromString(line.substring(line.indexOf("- ") + 2))).filter(descriptor -> !descriptor.getGroup().equals(nameToProject.get(project).getGroup())).collect(Collectors.groupingBy(Descriptor::getGroup));
+					}).map(line -> Descriptor.fromString(line.substring(line.indexOf("- ") + 2))).filter(descriptor -> !descriptor.getGroup().equals(nameToProject.get(name).getGroup())).collect(Collectors.groupingBy(Descriptor::getGroup));
 					// Extract the per-project version and make sure we only ever depend on one version
 					dependencies = new LinkedHashMap<>();
 					for (List<Descriptor> descriptors : grouped.values()) {
 						final Set<String> groupVersions = descriptors.stream().map(Descriptor::getVersion).collect(Collectors.toSet());
-						if (groupVersions.size() > 1) throw new IllegalArgumentException(String.format("%3$s depends on multiple versions of the project \"%1$s\": %2$s", descriptors.get(0).getGroup(), groupVersions, project));
+						if (groupVersions.size() > 1) throw new IllegalArgumentException(String.format("%3$s depends on multiple versions of the project \"%1$s\": %2$s", descriptors.get(0).getGroup(), groupVersions, name));
 						final String group = descriptors.get(0).getGroup();
 						dependencies.put(groupToProject.get(group).getName(), HCollection.getOne(groupVersions));
 					}
-					log.info("Found dependencies for {}: {}", project, dependencies);
+					log.info("Found dependencies for {}: {}", name, dependencies);
 					try {
 						objectMapper.writeValue(path.toFile(), new Temp(commit, dependencies));
 					} catch (IOException e) {
@@ -210,10 +206,9 @@ public class Build {
 		}
 
 		public Phase updatePhase(Phase phase) {
-			try (final InputStream stream = Files.newInputStream(getDirectory().resolve(RELEASE_PROPERTIES))) {
-				final Properties properties = new Properties();
-				properties.load(stream);
-				properties.setProperty(BULLDOZER_PHASE, phase.name());
+			final Path path = getDirectory().resolve(BULLDOZER_STATE);
+			try {
+				objectMapper.writeValue(path.toFile(), new State(phase));
 			} catch (IOException exception) {
 				throw new RuntimeIOException(String.format("Failed to update the phase %1$s", getName()), exception);
 			}
@@ -241,11 +236,26 @@ public class Build {
 		protected final String development;
 
 		protected final String completed;
+	}
 
+	@Data
+	@Builder
+	@AllArgsConstructor
+	public static class State {
 		protected final Phase phase;
 	}
 
-	protected static final String BULLDOZER_PHASE = "bulldozer.phase";
+	@Data
+	@Builder
+	@AllArgsConstructor
+	public static class Temp {
+		protected final String hash;
+
+		@Singular
+		protected final Map<String, String> dependencies;
+	}
+
+	protected static final String BULLDOZER_STATE = "bulldozer-state.json";
 
 	protected static final String BULLDOZER_TEMP = "bulldozer-temp.json";
 
@@ -289,7 +299,8 @@ public class Build {
 
 			{// Check for uncommitted changes in any project, and fail
 				final List<BuildProject> dirty = getDirty(projects);
-				if (!dirty.isEmpty()) ;//TODO throw new IllegalStateException(String.format("One or more projects were dirty (%1$s), please commit changes and try again!", dirty.stream().map(BuildProject::getName).collect(Collectors.joining(", "))));
+				if (!dirty.isEmpty()) ;// TODO throw new IllegalStateException(String.format("One or more projects were dirty (%1$s), please commit changes and
+										// try again!", dirty.stream().map(BuildProject::getName).collect(Collectors.joining(", "))));
 			}
 
 			// Compute the order in which to build the public projects
@@ -303,7 +314,7 @@ public class Build {
 				final BuildProject project = projects.get(name);
 				final Git git = project.getGit();
 
-				Phase phase = project.getReleaseProperties().getPhase();
+				Phase phase = project.getPhase();
 				if (Phase.Prepared.compareTo(phase) > 0) {
 					// Create and switch to the release branch if needed
 					switchToBranch(git);
@@ -343,7 +354,7 @@ public class Build {
 				log.info("Releasing {}", name);
 				final BuildProject project = projects.get(name);
 
-				if (Phase.Released.compareTo(project.getReleaseProperties().getPhase()) > 0) {
+				if (Phase.Released.compareTo(project.getPhase()) > 0) {
 					final Git git = project.getGit();
 
 					// Check out the branch head
@@ -362,7 +373,7 @@ public class Build {
 			for (String name : order) {
 				log.info("Restarting development of {}", name);
 				final BuildProject project = projects.get(name);
-				Phase phase = project.getReleaseProperties().getPhase();
+				Phase phase = project.getPhase();
 
 				if (Phase.Released.compareTo(phase) > 0) {
 					// Remove the maven temporary install of the new release version
