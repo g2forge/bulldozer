@@ -36,7 +36,9 @@ import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import com.g2forge.alexandria.data.graph.HGraph;
 import com.g2forge.alexandria.java.close.ICloseable;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
+import com.g2forge.alexandria.java.function.IConsumer2;
 import com.g2forge.alexandria.java.function.IFunction1;
+import com.g2forge.alexandria.java.function.ISupplier;
 import com.g2forge.alexandria.java.io.HFile;
 import com.g2forge.alexandria.java.io.HIO;
 import com.g2forge.alexandria.java.io.RuntimeIOException;
@@ -57,6 +59,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.Singular;
 import lombok.extern.slf4j.Slf4j;
 
@@ -69,10 +72,10 @@ public class Build {
 		protected final Project project;
 
 		@Getter(lazy = true)
-		private final String group = getMaven().evaluate(getDirectory(), "project.groupId");
+		private final String group = loadTemp(Temp::getGroup, Temp::setGroup, () -> getMaven().evaluate(getDirectory(), "project.groupId"));
 
 		@Getter(lazy = true)
-		private final String version = getMaven().evaluate(getDirectory(), "project.version");
+		private final String version = loadTemp(Temp::getVersion, Temp::setVersion, () -> getMaven().evaluate(getDirectory(), "project.version"));
 
 		@Getter(lazy = true)
 		private final Path directory = computeDirectory();
@@ -156,25 +159,7 @@ public class Build {
 
 		public Map<String, String> loadDependencies(final Map<String, BuildProject> nameToProject, final Map<String, BuildProject> groupToProject) {
 			if (dependencies == null) {
-				final String commit;
-				try {
-					commit = getGit().getRepository().findRef(Constants.HEAD).getObjectId().getName();
-				} catch (IOException e) {
-					throw new RuntimeIOException(e);
-				}
-
-				final Path path = getDirectory().resolve(BULLDOZER_TEMP);
-				if (Files.exists(path)) {
-					try {
-						final Temp temp = objectMapper.readValue(path.toFile(), Temp.class);
-						if (temp.getHash().equals(commit)) dependencies = temp.getDependencies();
-						else Files.delete(path);
-					} catch (IOException e) {
-						throw new RuntimeIOException(e);
-					}
-				}
-
-				if (dependencies == null) {
+				dependencies = this.<Map<String, String>>loadTemp(Temp::getDependencies, Temp::setDependencies, () -> {
 					final String name = getName();
 					log.info("Loading dependencies for {}", name);
 					// Run maven dependencies and filter the output down to usable information
@@ -194,14 +179,47 @@ public class Build {
 						dependencies.put(groupToProject.get(group).getName(), HCollection.getOne(groupVersions));
 					}
 					log.info("Found dependencies for {}: {}", name, dependencies);
-					try {
-						objectMapper.writeValue(path.toFile(), new Temp(commit, dependencies));
-					} catch (IOException e) {
-						throw new RuntimeIOException(e);
-					}
-				}
+					return dependencies;
+				});
 			}
 			return dependencies;
+		}
+
+		public <T> T loadTemp(IFunction1<Temp, T> getter, IConsumer2<Temp, T> setter, ISupplier<T> generator) {
+			final String commit;
+			try {
+				commit = getGit().getRepository().findRef(Constants.HEAD).getObjectId().getName();
+			} catch (IOException e) {
+				throw new RuntimeIOException(e);
+			}
+
+			final Path path = getDirectory().resolve(BULLDOZER_TEMP);
+			Temp temp = null;
+			if (Files.exists(path)) {
+				try {
+					final Temp read = objectMapper.readValue(path.toFile(), Temp.class);
+					if (read.getHash().equals(commit)) temp = read;
+					else Files.delete(path);
+				} catch (IOException e) {
+					throw new RuntimeIOException(e);
+				}
+			}
+			if (temp == null) {
+				temp = new Temp();
+				temp.setHash(commit);
+			}
+			final T retVal0 = getter.apply(temp);
+			if (retVal0 != null) return retVal0;
+
+			final T retVal1 = generator.get();
+			setter.accept(temp, retVal1);
+			try {
+				objectMapper.writeValue(path.toFile(), temp);
+			} catch (IOException e) {
+				throw new RuntimeIOException(e);
+			}
+			return retVal1;
+
 		}
 
 		public ReleaseProperties predictReleaseProperties() {
@@ -258,11 +276,16 @@ public class Build {
 	@Data
 	@Builder
 	@AllArgsConstructor
+	@RequiredArgsConstructor
 	public static class Temp {
-		protected final String hash;
+		protected String hash;
+
+		protected String group;
+
+		protected String version;
 
 		@Singular
-		protected final Map<String, String> dependencies;
+		protected Map<String, String> dependencies;
 	}
 
 	protected static final String BULLDOZER_STATE = "bulldozer-state.json";
@@ -400,7 +423,7 @@ public class Build {
 				final BuildProject project = projects.get(name);
 				Phase phase = project.getPhase();
 
-				if (Phase.Released.compareTo(phase) > 0) {
+				if (Phase.DeletedRelease.compareTo(phase) > 0) {
 					// Remove the maven temporary install of the new release version
 					Path current = repository;
 					for (String component : project.getGroup().split("\\.")) {
@@ -422,15 +445,12 @@ public class Build {
 				}
 			}
 
-			{
-				log.info("Updating downstream projects");
+			log.info("Updating downstream projects");
+			for (BuildProject project : projects.values()) {
 				// Update all the downstreams to new snapshot versions
-				getMaven().updateVersions(getRoot(), true, updateProfiles, order.stream().map(projects::get).map(BuildProject::getGroup).map(g -> g + ":*").collect(Collectors.toList()));
-
+				getMaven().updateVersions(project.getDirectory(), true, updateProfiles, order.stream().map(projects::get).map(BuildProject::getGroup).map(g -> g + ":*").collect(Collectors.toList()));
 				// Commit anything dirty, since those are the things with version updates
-				for (BuildProject project : projects.values()) {
-					commitUpstreamReversion(project.getGit());
-				}
+				commitUpstreamReversion(project.getGit());
 			}
 		} finally {
 			HIO.closeAll(projects.values());
