@@ -1,6 +1,5 @@
 package com.g2forge.bulldozer.build;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -205,6 +204,17 @@ public class Build {
 			return dependencies;
 		}
 
+		public ReleaseProperties predictReleaseProperties() {
+			final ReleasePropertiesBuilder retVal = ReleaseProperties.builder();
+			final Version prior = Version.parse(getVersion());
+			final Version release = prior.toReleaseVersion();
+			final String releaseVersion = release.toString();
+			retVal.release(releaseVersion);
+			retVal.tag(releaseVersion);
+			retVal.development(release.next(Element.PATCH).toString() + "-SNAPSHOT");
+			return retVal.build();
+		}
+
 		public Phase updatePhase(Phase phase) {
 			final Path path = getDirectory().resolve(BULLDOZER_STATE);
 			try {
@@ -298,7 +308,14 @@ public class Build {
 			log.info("Public projects: {}", publicProjects.stream().map(BuildProject::getName).collect(Collectors.joining(", ")));
 
 			{// Check for uncommitted changes in any project, and fail
-				final List<BuildProject> dirty = getDirty(projects);
+				final List<BuildProject> dirty = projects.values().stream().filter(project -> {
+					try {
+						final Status status = project.getGit().status().call();
+						return !status.isClean() && !status.getUncommittedChanges().isEmpty();
+					} catch (NoWorkTreeException | GitAPIException e) {
+						throw new RuntimeException(String.format("Failure while attempting to check whether %1$s is dirty!", project.getName()), e);
+					}
+				}).collect(Collectors.toList());
 				if (!dirty.isEmpty()) throw new IllegalStateException(String.format("One or more projects were dirty (%1$s), please commit changes and try again!", dirty.stream().map(BuildProject::getName).collect(Collectors.joining(", "))));
 			}
 
@@ -306,6 +323,18 @@ public class Build {
 			log.info("Planning builder order");
 			final List<String> order = computeBuildOrder(publicProjects);
 			log.info("Build order: {}", order);
+
+			{ // Make sure none of the tags already exist
+				final List<BuildProject> tagged = order.stream().map(projects::get).filter(project -> {
+					final ReleaseProperties releaseProperties = project.predictReleaseProperties();
+					try {
+						return project.getGit().getRepository().findRef(Constants.R_TAGS + releaseProperties.getTag()) != null;
+					} catch (IOException e) {
+						throw new RuntimeException(String.format("Failure while attempting to check whether %1$s is already tagged!", project.getName()), e);
+					}
+				}).collect(Collectors.toList());
+				if (!tagged.isEmpty()) throw new IllegalStateException(String.format("One or more projects were already tagged (%1$s), please remove those tags and try again!", tagged.stream().map(BuildProject::getName).collect(Collectors.joining(", "))));
+			}
 
 			// Prepare all the releases
 			for (String name : order) {
@@ -321,11 +350,8 @@ public class Build {
 					commitUpstreamReversion(git);
 
 					{ // Prepare the project (stream stdio to the console)
-						final Version prior = Version.parse(project.getVersion());
-						final Version release = prior.toReleaseVersion();
-						final String releaseVersion = release.toString();
-						final String developmentVersion = release.next(Element.PATCH).toString() + "-SNAPSHOT";
-						getMaven().releasePrepare(project.getDirectory(), releaseVersion, releaseVersion, developmentVersion);
+						final ReleaseProperties releaseProperties = project.predictReleaseProperties();
+						getMaven().releasePrepare(project.getDirectory(), releaseProperties.getTag(), releaseProperties.getRelease(), releaseProperties.getDevelopment());
 					}
 					phase = project.updatePhase(Phase.Prepared);
 				}
@@ -433,22 +459,11 @@ public class Build {
 		return getIssue() + "-Release";
 	}
 
-	protected List<BuildProject> getDirty(final Map<String, BuildProject> projects) {
-		return projects.values().stream().filter(project -> {
-			try {
-				final Status status = project.getGit().status().call();
-				return !status.isClean() && !status.getUncommittedChanges().isEmpty();
-			} catch (NoWorkTreeException | GitAPIException e) {
-				throw new RuntimeException(String.format("Failure while attempting to check whether %1$s is dirty!", project.getName()), e);
-			}
-		}).collect(Collectors.toList());
-	}
-
 	protected void switchToBranch(final Git git) throws IOException, GitAPIException {
 		final String current = git.getRepository().getBranch();
 		if (!current.equals(getBranch())) {
-			final boolean exists = git.branchList().call().stream().filter(ref -> ref.getName().equals(Constants.R_HEADS + getBranch())).findAny().isPresent();
-			git.checkout().setCreateBranch(!exists).setName(getBranch()).call();
+			final boolean exists = git.getRepository().findRef(Constants.R_HEADS + getBranch()) != null;
+			git.checkout().setCreateBranch(exists).setName(getBranch()).call();
 		}
 	}
 }
