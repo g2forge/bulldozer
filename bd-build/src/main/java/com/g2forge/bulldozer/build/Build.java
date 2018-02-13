@@ -386,7 +386,7 @@ public class Build {
 					git.checkout().setCreateBranch(false).setName(getBranch()).call();
 
 					// Perform the release
-					// getMaven().releasePerform(project.getDirectory());
+					// TODO getMaven().releasePerform(project.getDirectory());
 
 					project.updatePhase(Phase.Released);
 				}
@@ -463,7 +463,7 @@ public class Build {
 		final String current = git.getRepository().getBranch();
 		if (!current.equals(getBranch())) {
 			final boolean exists = git.getRepository().findRef(Constants.R_HEADS + getBranch()) != null;
-			git.checkout().setCreateBranch(exists).setName(getBranch()).call();
+			git.checkout().setCreateBranch(!exists).setName(getBranch()).call();
 		}
 	}
 }
