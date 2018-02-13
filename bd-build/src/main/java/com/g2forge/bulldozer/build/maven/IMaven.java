@@ -64,7 +64,7 @@ public interface IMaven {
 	@Command(value = { "mvn", "org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate" }, handler = EvaluateResultHandler.class)
 	public String evaluate(@Working Path path, @Named("-Dexpression=") String expression);
 
-	@Command({ "mvn", "install", "-Prelease" })
+	@Command({ "mvn", "clean", "install", "-Prelease" })
 	public void install(@Working Path path);
 
 	@Command({ "mvn", "release:perform", "-Prelease" })
