@@ -18,15 +18,13 @@ import java.util.stream.Stream;
 import org.eclipse.jgit.api.AddCommand;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.Status;
-import org.eclipse.jgit.api.errors.AbortedByHookException;
-import org.eclipse.jgit.api.errors.ConcurrentRefUpdateException;
+import org.eclipse.jgit.api.errors.CheckoutConflictException;
 import org.eclipse.jgit.api.errors.GitAPIException;
-import org.eclipse.jgit.api.errors.NoFilepatternException;
-import org.eclipse.jgit.api.errors.NoHeadException;
-import org.eclipse.jgit.api.errors.NoMessageException;
-import org.eclipse.jgit.api.errors.UnmergedPathsException;
-import org.eclipse.jgit.api.errors.WrongRepositoryStateException;
+import org.eclipse.jgit.api.errors.InvalidRefNameException;
+import org.eclipse.jgit.api.errors.RefAlreadyExistsException;
+import org.eclipse.jgit.api.errors.RefNotFoundException;
 import org.eclipse.jgit.errors.NoWorkTreeException;
+import org.eclipse.jgit.lib.Constants;
 import org.semver.Version;
 import org.semver.Version.Element;
 import org.slf4j.event.Level;
@@ -87,8 +85,10 @@ public class Build {
 		@Getter(lazy = true, value = AccessLevel.PROTECTED)
 		private final List<AutoCloseable> closeables = new ArrayList<>();
 
-		@Getter(lazy = true)
-		private final ReleaseProperties releaseProperties = computeReleaseProperties();
+		public void checkoutTag(String tag) throws RefAlreadyExistsException, RefNotFoundException, InvalidRefNameException, CheckoutConflictException, GitAPIException {
+			getGit().checkout().setCreateBranch(true).setName(BRANCH_DUMMYINSTALL).setStartPoint(Constants.R_TAGS + tag).call();
+			this.getCloseables().add(() -> getGit().branchDelete().setBranchNames(BRANCH_DUMMYINSTALL).call());
+		}
 
 		@Override
 		public void close() {
@@ -96,13 +96,13 @@ public class Build {
 		}
 
 		protected Path computeDirectory() {
-			final String name = getName();
-			final int index = name.indexOf('/');
-			return getRoot().resolve(index > 0 ? name.substring(0, index) : name);
+			return getRoot().resolve(getName());
 		}
 
 		protected Git computeGit() {
-			final Git retVal = HGit.createGit(getDirectory(), false);
+			final String name = getName();
+			final int index = name.indexOf('/');
+			final Git retVal = HGit.createGit(getRoot().resolve(index > 0 ? name.substring(0, index) : name), false);
 			getCloseables().add(retVal);
 			return retVal;
 		}
@@ -115,24 +115,56 @@ public class Build {
 			}
 		}
 
-		protected ReleaseProperties computeReleaseProperties() {
-			try (final InputStream stream = Files.newInputStream(getDirectory().resolve("release.properties"))) {
-				final Properties properties = new Properties();
-				properties.load(stream);
-				final ReleasePropertiesBuilder retVal = ReleaseProperties.builder();
-				retVal.tag(properties.getProperty("scm.tag"));
-				final String suffix = getGroup() + "\\:" + getName();
-				retVal.development(properties.getProperty("project.dev." + suffix));
-				retVal.release(properties.getProperty("project.rel." + suffix));
-				return retVal.build();
-			} catch (IOException exception) {
-				throw new RuntimeIOException(String.format("Failed to load release properties for %1$s", getName()), exception);
-			}
-		}
-
 		public String getName() {
 			return getProject().getName();
 		}
+
+		public ReleaseProperties getReleaseProperties() {
+			final Path file = getDirectory().resolve(RELEASE_PROPERTIES);
+			if (Files.exists(file)) {
+				try (final InputStream stream = Files.newInputStream(file)) {
+					final Properties properties = new Properties();
+					properties.load(stream);
+
+					final ReleasePropertiesBuilder retVal = ReleaseProperties.builder();
+					retVal.tag(properties.getProperty("scm.tag"));
+					final String suffix = getGroup() + ":" + getName();
+					retVal.development(properties.getProperty("project.dev." + suffix));
+					retVal.release(properties.getProperty("project.rel." + suffix));
+					retVal.completed(properties.getProperty("completedPhase"));
+
+					final String phase = properties.getProperty("bulldozer.phase");
+					retVal.phase(phase == null ? Phase.Initial : Phase.valueOf(phase));
+					return retVal.build();
+				} catch (IOException exception) {
+					throw new RuntimeIOException(String.format("Failed to load release properties for %1$s", getName()), exception);
+				}
+			} else {
+				final ReleasePropertiesBuilder retVal = ReleaseProperties.builder();
+				retVal.phase(Phase.Initial);
+				return retVal.build();
+			}
+		}
+
+		public Phase updatePhase(Phase phase) {
+			try (final InputStream stream = Files.newInputStream(getDirectory().resolve(RELEASE_PROPERTIES))) {
+				final Properties properties = new Properties();
+				properties.load(stream);
+				properties.setProperty("bulldozer.phase", phase.name());
+			} catch (IOException exception) {
+				throw new RuntimeIOException(String.format("Failed to update the phase %1$s", getName()), exception);
+			}
+			return phase;
+		}
+	}
+
+	protected static enum Phase {
+		Initial,
+		Prepared,
+		InstalledRelease,
+		Released,
+		DeletedRelease,
+		InstalledDevelopment,
 	}
 
 	@Data
@@ -144,13 +176,21 @@ public class Build {
 		protected final String tag;
 
 		protected final String development;
+
+		protected final String completed;
+
+		protected final Phase phase;
 	}
 
 	protected static final List<String> updateProfiles = Stream.of(Project.Protection.values()).filter(p -> !Project.Protection.Public.equals(p)).map(p -> p.name().toLowerCase()).collect(Collectors.toList());
 
 	protected static final XmlMapper mapper = new XmlMapper();
 
+	protected static final String RELEASE_PROPERTIES = "release.properties";
+
 	protected static final String POMXML = "pom.xml";
+
+	protected static final String BRANCH_DUMMYINSTALL = "DummyInstall";
 
 	public static void main(String[] args) throws JsonParseException, JsonMappingException, IOException, GitAPIException {
 		final Build build = new Build(Paths.get(args[0]), args[1], HCollection.asList(Arrays.copyOfRange(args, 2, args.length)));
@@ -194,37 +234,57 @@ public class Build {
 				final BuildProject project = projects.get(name);
 				final Git git = project.getGit();
 
-				// Create and switch to the release branch if needed
-				final String current = git.getRepository().getBranch();
-				if (!current.equals(getBranch())) git.checkout().setCreateBranch(true).setName(getBranch()).call();
+				Phase phase = project.getReleaseProperties().getPhase();
+				if (Phase.Prepared.compareTo(phase) > 0) {
+					// Create and switch to the release branch if needed
+					switchToBranch(git);
+					// Commit any changes from a past prepare
+					commitUpstreamReversion(git);
 
-				// Commit any changes from a past prepare
-				commitUpstreamReversion(git);
-				// TODO: Test this and everything later
-
-				{ // Prepare the project (stream stdio to the console)
-					final Version prior = Version.parse(project.getVersion());
-					final Version release = prior.toReleaseVersion();
-					final String releaseVersion = release.toString();
-					final String developmentVersion = release.next(Element.PATCH).toString() + "-SNAPSHOT";
-					getMaven().releasePrepare(project.getDirectory(), releaseVersion, releaseVersion, developmentVersion);
+					{ // Prepare the project (stream stdio to the console)
+						final Version prior = Version.parse(project.getVersion());
+						final Version release = prior.toReleaseVersion();
+						final String releaseVersion = release.toString();
+						final String developmentVersion = release.next(Element.PATCH).toString() + "-SNAPSHOT";
+						getMaven().releasePrepare(project.getDirectory(), releaseVersion, releaseVersion, developmentVersion);
+					}
+					phase = project.updatePhase(Phase.Prepared);
 				}
 
-				// Check out the recent tag using jgit
-				git.checkout().setStartPoint(project.getReleaseProperties().getTag()).call();
+				if (Phase.InstalledRelease.compareTo(phase) > 0) {
+					// Check out the recent tag using jgit
+					project.checkoutTag(project.getReleaseProperties().getTag());
+					// Maven install (stream stdio to the console) the newly created release version
+					getMaven().install(project.getDirectory());
 
-				// Maven install (stream stdio to the console) the newly created release version
-				getMaven().install(project.getDirectory());
+					phase = project.updatePhase(Phase.InstalledRelease);
+				}
 
 				// Update everyone who consumes this project (including the private consumers!) to the new version (and commit)
 				log.info("Updating downstream {}", name);
-				getMaven().updateVersions(getRoot(), false, updateProfiles, HCollection.asList(project.getGroup() + ":*"));
+				for (BuildProject downstream : projects.values()) {
+					// Skip ourselves
+					if (downstream == project) continue;
+					getMaven().updateVersions(downstream.getDirectory(), false, updateProfiles, HCollection.asList(project.getGroup() + ":*"));
+				}
 			}
 
 			// Perform the releases
-			for (String project : order) {
-				log.info("Releasing {}", project);
-				// getMaven().releasePerform(getRoot().resolve(project));
+			for (String name : order) {
+				log.info("Releasing {}", name);
+				final BuildProject project = projects.get(name);
+
+				if (Phase.Released.compareTo(project.getReleaseProperties().getPhase()) > 0) {
+					final Git git = project.getGit();
+
+					// Check out the branch head
+					git.checkout().setCreateBranch(false).setName(getBranch()).call();
+
+					// Perform the release
+					// getMaven().releasePerform(project.getDirectory());
+
+					project.updatePhase(Phase.Released);
+				}
 			}
 
 			final Path repository;
@@ -237,22 +297,29 @@ public class Build {
 			for (String name : order) {
 				log.info("Restarting development of {}", name);
 				final BuildProject project = projects.get(name);
+				Phase phase = project.getReleaseProperties().getPhase();
 
-				// Remove the maven temporary install of the new release version
-				Path current = repository;
-				for (String component : project.getGroup().split("\\.")) {
-					current = current.resolve(component);
+				if (Phase.Released.compareTo(phase) > 0) {
+					// Remove the maven temporary install of the new release version
+					Path current = repository;
+					for (String component : project.getGroup().split("\\.")) {
+						current = current.resolve(component);
+					}
+					for (String artifact : HCollection.concatenate(HCollection.asList(name), project.getPom().getModules())) {
+						// TODO: Test this carefully
+						HFile.delete(current.resolve(artifact).resolve(project.getReleaseProperties().getRelease()));
+					}
+					project.updatePhase(Phase.DeletedRelease);
 				}
-				for (String artifact : HCollection.concatenate(HCollection.asList(name), project.getPom().getModules())) {
-					// TODO: Test this carefully
-					HFile.delete(current.resolve(artifact).resolve(project.getReleaseProperties().getRelease()));
+
+				if (Phase.InstalledDevelopment.compareTo(phase) > 0) {
+					// Check out the branch head
+					project.getGit().checkout().setCreateBranch(false).setName(getBranch()).call();
+
+					// Maven install (stream stdio to the console) the new development versions
+					getMaven().install(project.getDirectory());
+					project.updatePhase(Phase.InstalledDevelopment);
 				}
-
-				// Check out the branch head
-				project.getGit().checkout().setCreateBranch(true).setName(getBranch()).call();
-
-				// Maven install (stream stdio to the console) the new development versions
-				getMaven().install(project.getDirectory());
 			}
 
 			{
@@ -270,9 +337,19 @@ public class Build {
 		}
 	}
 
-	protected void commitUpstreamReversion(final Git git) throws GitAPIException, NoFilepatternException, NoHeadException, NoMessageException, UnmergedPathsException, ConcurrentRefUpdateException, WrongRepositoryStateException, AbortedByHookException {
+	protected void switchToBranch(final Git git) throws IOException, GitAPIException {
+		final String current = git.getRepository().getBranch();
+		if (!current.equals(getBranch())) {
+			final boolean exists = git.branchList().call().stream().filter(ref -> ref.getName().equals(Constants.R_HEADS + getBranch())).findAny().isPresent();
+			git.checkout().setCreateBranch(!exists).setName(getBranch()).call();
+		}
+	}
+
+	protected void commitUpstreamReversion(final Git git) throws IOException, GitAPIException {
 		final Status status = git.status().call();
 		if (!status.isClean() && !status.getUncommittedChanges().isEmpty()) {
+			switchToBranch(git);
+
 			final AddCommand add = git.add();
 			status.getUncommittedChanges().forEach(add::addFilepattern);
 			add.call();
@@ -300,7 +377,7 @@ public class Build {
 			final Map<String, String> versions = new LinkedHashMap<>();
 			for (List<Descriptor> descriptors : grouped.values()) {
 				final Set<String> groupVersions = descriptors.stream().map(Descriptor::getVersion).collect(Collectors.toSet());
-				if (groupVersions.size() > 1) throw new IllegalArgumentException(String.format("Depended on multiple versions of the project \"%1$s\": %2$s", project, groupVersions));
+				if (groupVersions.size() > 1) throw new IllegalArgumentException(String.format("%3$s depends on multiple versions of the project \"%1$s\": %2$s", descriptors.get(0).getGroup(), groupVersions, project));
 				final String group = descriptors.get(0).getGroup();
 				versions.put(groupToProject.get(group).getName(), HCollection.getOne(groupVersions));
 			}
@@ -318,7 +395,8 @@ public class Build {
 	protected List<BuildProject> getDirty(final Map<String, BuildProject> projects) {
 		return projects.values().stream().filter(project -> {
 			try {
-				return !project.getGit().status().call().isClean();
+				final Status status = project.getGit().status().call();
+				return !status.isClean() && !status.getUncommittedChanges().isEmpty();
 			} catch (NoWorkTreeException | GitAPIException e) {
 				throw new RuntimeException(String.format("Failure while attempting to check whether %1$s is dirty!", project.getName()), e);
 			}

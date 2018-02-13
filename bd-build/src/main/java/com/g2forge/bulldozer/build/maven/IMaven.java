@@ -8,6 +8,7 @@ import java.util.stream.Stream;
 import com.g2forge.alexandria.java.core.helpers.HStream;
 import com.g2forge.alexandria.java.typed.ATypeRef;
 import com.g2forge.gearbox.functional.control.Command;
+import com.g2forge.gearbox.functional.control.Constant;
 import com.g2forge.gearbox.functional.control.Explicit;
 import com.g2forge.gearbox.functional.control.Flag;
 import com.g2forge.gearbox.functional.control.IArgumentContext;
@@ -72,6 +73,6 @@ public interface IMaven {
 	@Command({ "mvn", "--batch-mode", "release:prepare", "-Prelease" })
 	public void releasePrepare(@Working Path path, @Named("-Dtag") String tag, @Named("-DreleaseVersion") String release, @Named("-DdevelopmentVersion=") String development);
 
-	@Command({ "mvn", "versions:update-parent", "versions:update-properties" })
-	public Stream<String> updateVersions(@Working Path path, @Explicit(SnapshotArgumentHandler.class) boolean snapshot, @Explicit(CSVArgumentHandler.class) @Named("-P") List<String> profiles, @Explicit(CSVArgumentHandler.class) @Named("-Dincludes=") List<String> includes);
+	@Command({ "mvn", "versions:update-parent" })
+	public void updateVersions(@Working Path path, @Explicit(SnapshotArgumentHandler.class) @Constant("versions:update-properties") boolean snapshot, @Explicit(CSVArgumentHandler.class) @Named("-P") List<String> profiles, @Explicit(CSVArgumentHandler.class) @Named("-Dincludes=") List<String> includes);
 }
