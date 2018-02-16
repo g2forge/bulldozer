@@ -32,6 +32,11 @@
 			<artifactId>gb-git</artifactId>
 			<version>${gearbox.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>com.g2forge.enigma</groupId>
+			<artifactId>en-diagram</artifactId>
+			<version>${enigma.version}</version>
+		</dependency>
 
 		<dependency>
 			<groupId>com.fasterxml.jackson.dataformat</groupId>

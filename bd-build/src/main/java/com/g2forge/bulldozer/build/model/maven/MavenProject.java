@@ -1,4 +1,4 @@
-package com.g2forge.bulldozer.build.model;
+package com.g2forge.bulldozer.build.model.maven;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -7,7 +7,7 @@ import lombok.Data;
 @Data
 @Builder
 @AllArgsConstructor
-public class Project {
+public class MavenProject {
 	public enum Protection {
 		Public,
 		Private,
@@ -16,5 +16,5 @@ public class Project {
 
 	protected final String name;
 
-	protected final Project.Protection protection;
+	protected final MavenProject.Protection protection;
 }

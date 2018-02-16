@@ -1,4 +1,4 @@
-package com.g2forge.bulldozer.build.model;
+package com.g2forge.bulldozer.build.model.maven;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -17,22 +17,22 @@ import lombok.Getter;
 @Data
 @Builder
 @AllArgsConstructor
-public class Projects {
+public class MavenProjects {
 	protected final Path rootPOM;
 
 	@Getter(lazy = true)
-	private final List<Project> projects = computeProjects();
+	private final List<MavenProject> projects = computeProjects();
 
-	protected List<Project> computeProjects() {
+	protected List<MavenProject> computeProjects() {
 		try {
 			final XmlMapper mapper = new XmlMapper();
 			final POM pom = mapper.readValue(getRootPOM().toFile(), POM.class);
-			final List<Project> retVal = new ArrayList<>();
-			pom.getModules().stream().map(name -> new Project(name, Project.Protection.Public)).forEach(retVal::add);
+			final List<MavenProject> retVal = new ArrayList<>();
+			pom.getModules().stream().map(name -> new MavenProject(name, MavenProject.Protection.Public)).forEach(retVal::add);
 			for (Profile profile : pom.getProfiles()) {
-				final Project.Protection protection = HEnum.valueOfInsensitive(Project.Protection.class, profile.getId());
+				final MavenProject.Protection protection = HEnum.valueOfInsensitive(MavenProject.Protection.class, profile.getId());
 				if (protection == null) continue;
-				profile.getModules().stream().map(name -> new Project(name, protection)).forEach(retVal::add);
+				profile.getModules().stream().map(name -> new MavenProject(name, protection)).forEach(retVal::add);
 			}
 			return retVal;
 		} catch (Throwable throwable) {
