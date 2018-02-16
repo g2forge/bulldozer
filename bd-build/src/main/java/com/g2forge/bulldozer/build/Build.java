@@ -39,7 +39,6 @@ import com.g2forge.bulldozer.build.maven.IMaven;
 import com.g2forge.bulldozer.build.model.BulldozerProject;
 import com.g2forge.bulldozer.build.model.Context;
 import com.g2forge.bulldozer.build.model.maven.MavenProject;
-import com.g2forge.bulldozer.build.model.maven.MavenProjects;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -164,7 +163,7 @@ public class Build {
 
 		// Load information about all the projects
 		log.info("Loading project information");
-		final Map<String, BuildProject> projects = new MavenProjects(getContext().getRoot().resolve(IMaven.POM_XML)).getProjects().stream().map(project -> new BuildProject(getContext(), project)).collect(Collectors.toMap(BulldozerProject::getName, IFunction1.identity()));
+		final Map<String, BuildProject> projects = getContext().loadProjects(BuildProject::new);
 		try {
 			// Print a list of the public projects
 			final List<BuildProject> publicProjects = projects.values().stream().filter(project -> MavenProject.Protection.Public.equals(project.getProject().getProtection())).collect(Collectors.toList());

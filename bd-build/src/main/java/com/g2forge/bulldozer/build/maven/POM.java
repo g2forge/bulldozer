@@ -20,6 +20,10 @@ public class POM {
 
 	protected final String version;
 
+	protected final String name;
+
+	protected final String description;
+
 	@Singular
 	protected final List<String> modules;
 
