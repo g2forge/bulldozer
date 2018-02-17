@@ -1,6 +1,7 @@
 package com.g2forge.bulldozer.build;
 
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
@@ -107,7 +108,8 @@ public class CreatePRs {
 
 				final GHRepository repository = github.getRepository(project.getGithubMaster().toGitHubName());
 				final List<GHPullRequest> pullRequests = StreamSupport.stream(repository.queryPullRequests().head(head).base(base).list().spliterator(), false).collect(Collectors.toList());
-				if (pullRequests.size() > 1) throw new IllegalStateException();
+				final GHPullRequest pr;
+				if (pullRequests.size() > 1) throw new IllegalStateException(String.format("Found multiple pull requests: %1$s", pullRequests.stream().map(GHPullRequest::getHtmlUrl).map(URL::toString).collect(Collectors.joining(", "))));
 				else if (pullRequests.isEmpty()) {
 					final String body;
 					{ // Build the PR body
@@ -126,12 +128,24 @@ public class CreatePRs {
 						body = new MDRenderer().render(builder.build());
 					}
 
-					final GHPullRequest pr = repository.createPullRequest(getTitle(), head, base, body);
-					projectToPullRequest.put(name, pr);
+					pr = repository.createPullRequest(getTitle(), head, base, body);
 					log.info(String.format("Opened %1$s", pr.getHtmlUrl()));
+				} else {
+					pr = HCollection.getOne(pullRequests);
+					log.info(String.format("Found %1$s", pr.getHtmlUrl()));
+				}
+				projectToPullRequest.put(name, pr);
 
+				boolean changed = false;
+				if (pr.getLabels().isEmpty()) {
 					pr.setLabels(base);
+					changed = true;
+				}
+				if (!pr.getAssignees().contains(github.getMyself())) {
 					pr.addAssignees(github.getMyself());
+					changed = true;
+				}
+				if (pr.getMilestone() == null) {
 					final List<GHMilestone> milestones = StreamSupport.stream(repository.listMilestones(GHIssueState.OPEN).spliterator(), false).collect(Collectors.toList());
 					if (!milestones.isEmpty()) {
 						final String projectVersion = Version.parse(project.getVersion()).toReleaseVersion().toString();
@@ -143,16 +157,13 @@ public class CreatePRs {
 								return version.equals(projectVersion);
 							}).collect(Collectors.toList()));
 						} catch (NoSuchElementException e) {
-							throw new IllegalStateException(String.format("Could not find milestone %1$s for %2$s, options are: %3$2", projectVersion, pr.getHtmlUrl(), milestones), e);
+							throw new IllegalStateException(String.format("Could not find milestone %1$s for %2$s, options are: %3$s", projectVersion, pr.getHtmlUrl(), milestones.stream().map(GHMilestone::getTitle).collect(Collectors.joining(", "))), e);
 						}
 						repository.getIssue(pr.getNumber()).setMilestone(milestone);
+						changed = true;
 					}
-					log.info("Set labels, assignee & milestone");
-				} else {
-					final GHPullRequest pr = HCollection.getOne(pullRequests);
-					log.info(String.format("Found %1$s", pr.getHtmlUrl()));
-					projectToPullRequest.put(name, pr);
 				}
+				if (changed) log.info("Set labels, assignee & milestone");
 			}
 		}
 	}
