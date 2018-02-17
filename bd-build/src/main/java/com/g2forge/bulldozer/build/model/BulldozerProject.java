@@ -37,7 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 public class BulldozerProject implements ICloseable {
 	protected static final String BRANCH_DUMMY = "bulldozer-dummy";
 
-	protected final Context context;
+	protected final Context<? extends BulldozerProject> context;
 
 	protected final MavenProject project;
 
@@ -56,7 +56,8 @@ public class BulldozerProject implements ICloseable {
 	@Getter(lazy = true)
 	private final POM pom = computePOM();
 
-	protected Map<String, String> dependencies;
+	@Getter(lazy = true)
+	private final Map<String, String> dependencies = computeDependencies();
 
 	@Getter(lazy = true, value = AccessLevel.PROTECTED)
 	private final List<AutoCloseable> closeables = new ArrayList<>();
@@ -64,6 +65,33 @@ public class BulldozerProject implements ICloseable {
 	@Override
 	public void close() {
 		HIO.closeAll(getCloseables());
+	}
+
+	protected Map<String, String> computeDependencies() {
+		final Map<String, ? extends BulldozerProject> nameToProject = getContext().getNameToProject();
+		final Map<String, ? extends BulldozerProject> groupToProject = getContext().getGroupToProject();
+		return loadTemp(BulldozerTemp::getDependencies, BulldozerTemp::setDependencies, () -> {
+			final String name = getName();
+			log.info("Loading dependencies for {}", name);
+			// Run maven dependencies and filter the output down to usable information
+			final Map<String, List<Descriptor>> grouped = getContext().getMaven().dependencyTree(getContext().getRoot().resolve(name), true, groupToProject.keySet().stream().map(g -> g + ":*").collect(Collectors.toList()))/*.map(new TapFunction<>(System.out::println))*/.filter(line -> {
+				if (!line.startsWith("[INFO]")) return false;
+				for (BulldozerProject publicProject : nameToProject.values()) {
+					if (line.contains("- " + publicProject.getGroup())) return true;
+				}
+				return false;
+			}).map(line -> Descriptor.fromString(line.substring(line.indexOf("- ") + 2))).filter(descriptor -> !descriptor.getGroup().equals(nameToProject.get(name).getGroup())).collect(Collectors.groupingBy(Descriptor::getGroup));
+			// Extract the per-project version and make sure we only ever depend on one version
+			final Map<String, String> retVal = new LinkedHashMap<>();
+			for (List<Descriptor> descriptors : grouped.values()) {
+				final Set<String> groupVersions = descriptors.stream().map(Descriptor::getVersion).collect(Collectors.toSet());
+				if (groupVersions.size() > 1) throw new IllegalArgumentException(String.format("%3$s depends on multiple versions of the project \"%1$s\": %2$s", descriptors.get(0).getGroup(), groupVersions, name));
+				final String group = descriptors.get(0).getGroup();
+				retVal.put(groupToProject.get(group).getName(), HCollection.getOne(groupVersions));
+			}
+			log.info("Found dependencies for {}: {}", name, retVal);
+			return retVal;
+		});
 	}
 
 	protected Path computeDirectory() {
@@ -88,34 +116,6 @@ public class BulldozerProject implements ICloseable {
 
 	public String getName() {
 		return getProject().getName();
-	}
-
-	public Map<String, String> loadDependencies(final Map<String, ? extends BulldozerProject> nameToProject, final Map<String, ? extends BulldozerProject> groupToProject) {
-		if (dependencies == null) {
-			dependencies = loadTemp(BulldozerTemp::getDependencies, BulldozerTemp::setDependencies, () -> {
-				final String name = getName();
-				log.info("Loading dependencies for {}", name);
-				// Run maven dependencies and filter the output down to usable information
-				final Map<String, List<Descriptor>> grouped = getContext().getMaven().dependencyTree(getContext().getRoot().resolve(name), true, groupToProject.keySet().stream().map(g -> g + ":*").collect(Collectors.toList()))/*.map(new TapFunction<>(System.out::println))*/.filter(line -> {
-					if (!line.startsWith("[INFO]")) return false;
-					for (BulldozerProject publicProject : nameToProject.values()) {
-						if (line.contains("- " + publicProject.getGroup())) return true;
-					}
-					return false;
-				}).map(line -> Descriptor.fromString(line.substring(line.indexOf("- ") + 2))).filter(descriptor -> !descriptor.getGroup().equals(nameToProject.get(name).getGroup())).collect(Collectors.groupingBy(Descriptor::getGroup));
-				// Extract the per-project version and make sure we only ever depend on one version
-				dependencies = new LinkedHashMap<>();
-				for (List<Descriptor> descriptors : grouped.values()) {
-					final Set<String> groupVersions = descriptors.stream().map(Descriptor::getVersion).collect(Collectors.toSet());
-					if (groupVersions.size() > 1) throw new IllegalArgumentException(String.format("%3$s depends on multiple versions of the project \"%1$s\": %2$s", descriptors.get(0).getGroup(), groupVersions, name));
-					final String group = descriptors.get(0).getGroup();
-					dependencies.put(groupToProject.get(group).getName(), HCollection.getOne(groupVersions));
-				}
-				log.info("Found dependencies for {}: {}", name, dependencies);
-				return dependencies;
-			});
-		}
-		return dependencies;
 	}
 
 	public <T> T loadTemp(IFunction1<BulldozerTemp, T> getter, IConsumer2<BulldozerTemp, T> setter, ISupplier<T> generator) {

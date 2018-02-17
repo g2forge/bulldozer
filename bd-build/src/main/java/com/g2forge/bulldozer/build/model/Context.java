@@ -22,7 +22,9 @@ import lombok.Getter;
 @Data
 @Builder
 @AllArgsConstructor
-public class Context {
+public class Context<P extends BulldozerProject> {
+	protected final IFunction2<? super Context<P>, ? super MavenProject, ? extends P> constructor;
+
 	@Getter(lazy = true)
 	private final XmlMapper xmlMapper = new XmlMapper();
 
@@ -34,7 +36,16 @@ public class Context {
 
 	protected final Path root;
 
-	public <P extends BulldozerProject> Map<String, P> loadProjects(IFunction2<? super Context, ? super MavenProject, ? extends P> constructor) {
-		return new MavenProjects(getRoot().resolve(IMaven.POM_XML)).getProjects().stream().map(project -> constructor.apply(this, project)).collect(Collectors.toMap(BulldozerProject::getName, IFunction1.identity()));
+	@Getter(lazy = true)
+	private final Map<String, P> projects = computeProjects();
+
+	@Getter(lazy = true)
+	private final Map<String, P> nameToProject = getProjects().values().stream().collect(Collectors.toMap(BulldozerProject::getName, IFunction1.identity()));
+
+	@Getter(lazy = true)
+	private final Map<String, P> groupToProject = getProjects().values().stream().collect(Collectors.toMap(BulldozerProject::getGroup, IFunction1.identity()));
+
+	protected final Map<String, P> computeProjects() {
+		return new MavenProjects(getRoot().resolve(IMaven.POM_XML)).getProjects().stream().map(project -> getConstructor().apply(this, project)).collect(Collectors.toMap(BulldozerProject::getName, IFunction1.identity()));
 	}
 }

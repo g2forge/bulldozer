@@ -7,7 +7,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -30,7 +29,6 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.g2forge.alexandria.data.graph.HGraph;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
-import com.g2forge.alexandria.java.function.IFunction1;
 import com.g2forge.alexandria.java.io.HFile;
 import com.g2forge.alexandria.java.io.HIO;
 import com.g2forge.alexandria.java.io.RuntimeIOException;
@@ -53,7 +51,7 @@ public class Build {
 		@Getter(lazy = true)
 		private final ReleaseProperties releaseProperties = computeReleaseProperties();
 
-		public BuildProject(Context context, MavenProject project) {
+		public BuildProject(Context<BuildProject> context, MavenProject project) {
 			super(context, project);
 		}
 
@@ -147,11 +145,11 @@ public class Build {
 	protected static final List<String> PROFILES_TO_UPDATE = Stream.of(MavenProject.Protection.values()).filter(p -> !MavenProject.Protection.Public.equals(p)).map(p -> p.name().toLowerCase()).collect(Collectors.toList());
 
 	public static void main(String[] args) throws JsonParseException, JsonMappingException, IOException, GitAPIException {
-		final Build build = new Build(new Context(Paths.get(args[0])), args[1], HCollection.asList(Arrays.copyOfRange(args, 2, args.length)));
+		final Build build = new Build(new Context<BuildProject>(BuildProject::new, Paths.get(args[0])), args[1], HCollection.asList(Arrays.copyOfRange(args, 2, args.length)));
 		build.build();
 	}
 
-	protected final Context context;
+	protected final Context<BuildProject> context;
 
 	protected final String issue;
 
@@ -163,14 +161,13 @@ public class Build {
 
 		// Load information about all the projects
 		log.info("Loading project information");
-		final Map<String, BuildProject> projects = getContext().loadProjects(BuildProject::new);
 		try {
 			// Print a list of the public projects
-			final List<BuildProject> publicProjects = projects.values().stream().filter(project -> MavenProject.Protection.Public.equals(project.getProject().getProtection())).collect(Collectors.toList());
+			final List<BuildProject> publicProjects = getContext().getProjects().values().stream().filter(project -> MavenProject.Protection.Public.equals(project.getProject().getProtection())).collect(Collectors.toList());
 			log.info("Public projects: {}", publicProjects.stream().map(BulldozerProject::getName).collect(Collectors.joining(", ")));
 
 			{// Check for uncommitted changes in any project, and fail
-				final List<BulldozerProject> dirty = projects.values().stream().filter(project -> {
+				final List<BulldozerProject> dirty = getContext().getProjects().values().stream().filter(project -> {
 					try {
 						final Status status = project.getGit().status().call();
 						return !status.isClean() && !status.getUncommittedChanges().isEmpty();
@@ -183,11 +180,11 @@ public class Build {
 
 			// Compute the order in which to build the public projects
 			log.info("Planning builder order");
-			final List<String> order = computeBuildOrder(publicProjects);
+			final List<String> order = HGraph.toposort(targets, p -> getContext().getNameToProject().get(p).getDependencies().keySet(), false);
 			log.info("Build order: {}", order);
 
 			{ // Make sure none of the tags already exist
-				final List<BuildProject> tagged = order.stream().map(projects::get).filter(project -> {
+				final List<BuildProject> tagged = order.stream().map(getContext().getProjects()::get).filter(project -> {
 					final ReleaseProperties releaseProperties = project.predictReleaseProperties();
 					try {
 						return project.getGit().getRepository().findRef(Constants.R_TAGS + releaseProperties.getTag()) != null;
@@ -201,7 +198,7 @@ public class Build {
 			// Prepare all the releases
 			for (String name : order) {
 				log.info("Preparing {}", name);
-				final BuildProject project = projects.get(name);
+				final BuildProject project = getContext().getProjects().get(name);
 				final Git git = project.getGit();
 
 				Phase phase = project.getPhase();
@@ -229,7 +226,7 @@ public class Build {
 
 				// Update everyone who consumes this project (including the private consumers!) to the new version (and commit)
 				log.info("Updating downstream {}", name);
-				for (BulldozerProject downstream : projects.values()) {
+				for (BulldozerProject downstream : getContext().getProjects().values()) {
 					// Skip ourselves
 					if (downstream == project) continue;
 					getContext().getMaven().updateVersions(downstream.getDirectory(), false, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
@@ -239,7 +236,7 @@ public class Build {
 			// Perform the releases
 			for (String name : order) {
 				log.info("Releasing {}", name);
-				final BuildProject project = projects.get(name);
+				final BuildProject project = getContext().getProjects().get(name);
 
 				if (Phase.Released.compareTo(project.getPhase()) > 0) {
 					final Git git = project.getGit();
@@ -259,7 +256,7 @@ public class Build {
 			// Cleanup
 			for (String name : order) {
 				log.info("Restarting development of {}", name);
-				final BuildProject project = projects.get(name);
+				final BuildProject project = getContext().getProjects().get(name);
 				Phase phase = project.getPhase();
 
 				if (Phase.DeletedRelease.compareTo(phase) > 0) {
@@ -285,14 +282,14 @@ public class Build {
 			}
 
 			log.info("Updating downstream projects");
-			for (BulldozerProject project : projects.values()) {
+			for (BulldozerProject project : getContext().getProjects().values()) {
 				// Update all the downstreams to new snapshot versions
-				getContext().getMaven().updateVersions(project.getDirectory(), true, PROFILES_TO_UPDATE, order.stream().map(projects::get).map(BulldozerProject::getGroup).map(g -> g + ":*").collect(Collectors.toList()));
+				getContext().getMaven().updateVersions(project.getDirectory(), true, PROFILES_TO_UPDATE, order.stream().map(getContext().getProjects()::get).map(BulldozerProject::getGroup).map(g -> g + ":*").collect(Collectors.toList()));
 				// Commit anything dirty, since those are the things with version updates
 				commitUpstreamReversion(project.getGit());
 			}
 		} finally {
-			HIO.closeAll(projects.values());
+			HIO.closeAll(getContext().getProjects().values());
 		}
 	}
 
@@ -306,12 +303,6 @@ public class Build {
 			add.call();
 			git.commit().setMessage(getIssue() + " Updated upstream project versions").call();
 		}
-	}
-
-	protected List<String> computeBuildOrder(final List<? extends BulldozerProject> projects) {
-		final Map<String, ? extends BulldozerProject> nameToProject = projects.stream().collect(Collectors.toMap(BulldozerProject::getName, IFunction1.identity()));
-		final Map<String, ? extends BulldozerProject> groupToProject = projects.stream().collect(Collectors.toMap(BulldozerProject::getGroup, IFunction1.identity()));
-		return HGraph.toposort(targets, p -> nameToProject.get(p).loadDependencies(nameToProject, groupToProject).keySet(), false);
 	}
 
 	protected String getBranch() {

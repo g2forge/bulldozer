@@ -5,7 +5,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.slf4j.event.Level;
@@ -33,20 +32,18 @@ import lombok.Data;
 public class Catalog {
 
 	public static void main(String[] args) throws JsonParseException, JsonMappingException, IOException, GitAPIException {
-		final Catalog catalog = new Catalog(new Context(Paths.get(args[0])));
+		final Catalog catalog = new Catalog(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(args[0])));
 		catalog.catalog();
 	}
 
-	protected final Context context;
+	protected final Context<BulldozerProject> context;
 
 	public void catalog() throws IOException, GitAPIException {
 		HLog.getLogControl().setLogLevel(Level.INFO);
 		final Block.BlockBuilder projectsBuilder = Block.builder();
 
-		final Map<String, BulldozerProject> projects = getContext().loadProjects(BulldozerProject::new);
-
 		// Create a list of the project names and sort it alphabetically
-		final List<String> ordered = new ArrayList<>(projects.keySet());
+		final List<String> ordered = new ArrayList<>(getContext().getProjects().keySet());
 		Collections.sort(ordered);
 
 		// Loop over all the different protection profiles
@@ -54,7 +51,7 @@ public class Catalog {
 			// Build a list of projects in this protection profile
 			final DocList.DocListBuilder listBuilder = DocList.builder().marker(DocList.Marker.Ordered);
 			for (String name : ordered) {
-				final BulldozerProject project = projects.get(name);
+				final BulldozerProject project = getContext().getProjects().get(name);
 				// This is where we skip projects not in this protection profile (could use streaming groupby in the future)
 				if (!protection.equals(project.getProject().getProtection())) continue;
 
