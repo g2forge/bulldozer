@@ -64,6 +64,11 @@ public class Catalog {
 				final GitHubRepositoryID repositoryID = GitHubRepositoryID.fromURL(new GitConfig(project.getGit()).getOrigin().getURL());
 				item.content(new Link(repositoryID.toWebsiteURL(), new Text(project.getPom().getName())));
 
+				// If the project is public, add a link to the maven search
+				if (MavenProject.Protection.Public.equals(protection)) {
+					item.content(new Text(", ")).content(new Link("https://mvnrepository.com/artifact/" + project.getGroup(), new Text("Maven")));
+				}
+
 				// Pull the description from the pom
 				final String description = project.getPom().getDescription();
 				if (description != null) item.content(new Text(" - " + description));
