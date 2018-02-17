@@ -23,6 +23,11 @@
 			<version>${alexandria.version}</version>
 		</dependency>
 		<dependency>
+			<groupId>com.g2forge.alexandria</groupId>
+			<artifactId>ax-wizard</artifactId>
+			<version>${alexandria.version}</version>
+		</dependency>
+		<dependency>
 			<groupId>com.g2forge.gearbox</groupId>
 			<artifactId>gb-functional</artifactId>
 			<version>${gearbox.version}</version>
@@ -31,6 +36,21 @@
 			<groupId>com.g2forge.gearbox</groupId>
 			<artifactId>gb-git</artifactId>
 			<version>${gearbox.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.g2forge.gearbox</groupId>
+			<artifactId>gb-github</artifactId>
+			<version>${gearbox.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.g2forge.enigma</groupId>
+			<artifactId>en-diagram</artifactId>
+			<version>${enigma.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.g2forge.enigma</groupId>
+			<artifactId>en-document</artifactId>
+			<version>${enigma.version}</version>
 		</dependency>
 
 		<dependency>
@@ -43,6 +63,13 @@
 			<groupId>org.semver</groupId>
 			<artifactId>api</artifactId>
 			<version>0.9.33</version>
+			<exclusions>
+				<!-- Exclude an amazingly old version of the library! -->
+				<exclusion>
+					<groupId>commons-lang</groupId>
+					<artifactId>commons-lang</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 	</dependencies>
 </project>

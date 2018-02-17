@@ -55,6 +55,10 @@ public interface IMaven {
 		}
 	}
 
+	public static String RELEASE_PROPERTIES = "release.properties";
+
+	public static String POM_XML = "pom.xml";
+
 	@Command({ "mvn", "dependency:tree" })
 	public Stream<String> dependencyTree(@Working Path path, @Flag("-Dverbose") boolean verbose, @Explicit(CSVArgumentHandler.class) @Named("-Dincludes=") List<String> includes);
 
