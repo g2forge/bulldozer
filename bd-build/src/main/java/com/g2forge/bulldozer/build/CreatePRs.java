@@ -120,9 +120,12 @@ public class CreatePRs {
 							final Text comma = new Text(", ");
 							boolean first = true;
 							for (String dependency : dependencies) {
+								final GHPullRequest dependentPR = projectToPullRequest.get(dependency);
+								if (dependentPR == null) continue;
+
 								if (first) first = false;
 								else builder.content(comma);
-								builder.content(new Text(projectToPullRequest.get(dependency).getHtmlUrl().toString()));
+								builder.content(new Text(dependentPR.getHtmlUrl().toString()));
 							}
 						}
 						body = new MDRenderer().render(builder.build());
