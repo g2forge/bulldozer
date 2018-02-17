@@ -1,7 +1,9 @@
 package com.g2forge.bulldozer.build.model.maven;
 
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
@@ -18,6 +20,8 @@ import lombok.Getter;
 @Builder
 @AllArgsConstructor
 public class MavenProjects {
+	protected static final XmlMapper mapper = new XmlMapper();
+
 	protected final Path rootPOM;
 
 	@Getter(lazy = true)
@@ -25,15 +29,15 @@ public class MavenProjects {
 
 	protected List<MavenProject> computeProjects() {
 		try {
-			final XmlMapper mapper = new XmlMapper();
 			final POM pom = mapper.readValue(getRootPOM().toFile(), POM.class);
 			final List<MavenProject> retVal = new ArrayList<>();
-			pom.getModules().stream().map(name -> new MavenProject(name, MavenProject.Protection.Public)).forEach(retVal::add);
+			pom.getModules().stream().map(relative -> new MavenProject(Paths.get(relative), MavenProject.Protection.Public)).forEach(retVal::add);
 			for (Profile profile : pom.getProfiles()) {
 				final MavenProject.Protection protection = HEnum.valueOfInsensitive(MavenProject.Protection.class, profile.getId());
 				if (protection == null) continue;
-				profile.getModules().stream().map(name -> new MavenProject(name, protection)).forEach(retVal::add);
+				profile.getModules().stream().map(relative -> new MavenProject(Paths.get(relative), protection)).forEach(retVal::add);
 			}
+			retVal.add(new MavenProject(Paths.get("."), retVal.stream().map(MavenProject::getProtection).max(Comparator.naturalOrder()).get()));
 			return retVal;
 		} catch (Throwable throwable) {
 			throw new RuntimeException(throwable);

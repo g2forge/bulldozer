@@ -19,7 +19,6 @@ import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.InvalidRefNameException;
 import org.eclipse.jgit.api.errors.RefAlreadyExistsException;
 import org.eclipse.jgit.api.errors.RefNotFoundException;
-import org.eclipse.jgit.errors.NoWorkTreeException;
 import org.eclipse.jgit.lib.Constants;
 import org.semver.Version;
 import org.semver.Version.Element;
@@ -37,6 +36,7 @@ import com.g2forge.bulldozer.build.maven.IMaven;
 import com.g2forge.bulldozer.build.model.BulldozerProject;
 import com.g2forge.bulldozer.build.model.Context;
 import com.g2forge.bulldozer.build.model.maven.MavenProject;
+import com.g2forge.gearbox.git.HGit;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -68,7 +68,7 @@ public class Build {
 
 				final ReleaseProperties.ReleasePropertiesBuilder retVal = ReleaseProperties.builder();
 				retVal.tag(properties.getProperty("scm.tag"));
-				final String suffix = getGroup() + ":" + getName();
+				final String suffix = getGroup() + ":" + getArtifactId();
 				retVal.development(properties.getProperty("project.dev." + suffix));
 				retVal.release(properties.getProperty("project.rel." + suffix));
 				retVal.completed(properties.getProperty("completedPhase"));
@@ -166,17 +166,8 @@ public class Build {
 			final List<BuildProject> publicProjects = getContext().getProjects().values().stream().filter(project -> MavenProject.Protection.Public.equals(project.getProject().getProtection())).collect(Collectors.toList());
 			log.info("Public projects: {}", publicProjects.stream().map(BulldozerProject::getName).collect(Collectors.joining(", ")));
 
-			{// Check for uncommitted changes in any project, and fail
-				final List<BulldozerProject> dirty = getContext().getProjects().values().stream().filter(project -> {
-					try {
-						final Status status = project.getGit().status().call();
-						return !status.isClean() && !status.getUncommittedChanges().isEmpty();
-					} catch (NoWorkTreeException | GitAPIException e) {
-						throw new RuntimeException(String.format("Failure while attempting to check whether %1$s is dirty!", project.getName()), e);
-					}
-				}).collect(Collectors.toList());
-				if (!dirty.isEmpty()) throw new IllegalStateException(String.format("One or more projects were dirty (%1$s), please commit changes and try again!", dirty.stream().map(BulldozerProject::getName).collect(Collectors.joining(", "))));
-			}
+			// Check for uncommitted changes in any project, and fail
+			getContext().failIfDirty();
 
 			// Compute the order in which to build the public projects
 			log.info("Planning builder order");
@@ -310,10 +301,10 @@ public class Build {
 	}
 
 	protected void switchToBranch(final Git git) throws IOException, GitAPIException {
-		final String current = git.getRepository().getBranch();
-		if (!current.equals(getBranch())) {
-			final boolean exists = git.getRepository().findRef(Constants.R_HEADS + getBranch()) != null;
-			git.checkout().setCreateBranch(!exists).setName(getBranch()).call();
+		final String branch = getBranch();
+		if (!branch.equals(git.getRepository().getBranch())) {
+			final boolean exists = HGit.isBranch(git, branch);
+			git.checkout().setCreateBranch(!exists).setName(branch).call();
 		}
 	}
 }

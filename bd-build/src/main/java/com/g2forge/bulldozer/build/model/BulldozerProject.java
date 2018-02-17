@@ -76,7 +76,7 @@ public class BulldozerProject implements ICloseable {
 			final String name = getName();
 			log.info("Loading dependencies for {}", name);
 			// Run maven dependencies and filter the output down to usable information
-			final Map<String, List<ITuple2G_<Descriptor, Boolean>>> grouped = getContext().getMaven().dependencyTree(getContext().getRoot().resolve(name), true, groupToProject.keySet().stream().map(g -> g + ":*").collect(Collectors.toList()))/*.map(new TapFunction<>(System.out::println))*/.filter(line -> {
+			final Map<String, List<ITuple2G_<Descriptor, Boolean>>> grouped = getContext().getMaven().dependencyTree(getDirectory(), true, groupToProject.keySet().stream().map(g -> g + ":*").collect(Collectors.toList()))/*.map(new TapFunction<>(System.out::println))*/.filter(line -> {
 				if (!line.startsWith("[INFO]")) return false;
 				for (BulldozerProject publicProject : nameToProject.values()) {
 					if (line.contains("- " + publicProject.getGroup())) return true;
@@ -106,13 +106,11 @@ public class BulldozerProject implements ICloseable {
 	}
 
 	protected Path computeDirectory() {
-		return getContext().getRoot().resolve(getName());
+		return getContext().getRoot().resolve(getProject().getRelative());
 	}
 
 	protected Git computeGit() {
-		final String name = getName();
-		final int index = name.indexOf('/');
-		final Git retVal = HGit.createGit(getContext().getRoot().resolve(index > 0 ? name.substring(0, index) : name), false);
+		final Git retVal = HGit.createGit(getContext().getRoot().resolve(getProject().getRelative().getName(0)), false);
 		getCloseables().add(retVal);
 		return retVal;
 	}
@@ -125,8 +123,12 @@ public class BulldozerProject implements ICloseable {
 		}
 	}
 
+	public String getArtifactId() {
+		return getPom().getArtifactId();
+	}
+
 	public String getName() {
-		return getProject().getName();
+		return getArtifactId();
 	}
 
 	public <T> T loadTemp(IFunction1<BulldozerTemp, T> getter, IConsumer2<BulldozerTemp, T> setter, ISupplier<T> generator) {

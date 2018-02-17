@@ -1,5 +1,7 @@
 package com.g2forge.bulldozer.build.model.maven;
 
+import java.nio.file.Path;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,7 +16,7 @@ public class MavenProject {
 		Sandbox
 	}
 
-	protected final String name;
+	protected final Path relative;
 
 	protected final MavenProject.Protection protection;
 }

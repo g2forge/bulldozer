@@ -23,6 +23,11 @@
 			<version>${alexandria.version}</version>
 		</dependency>
 		<dependency>
+			<groupId>com.g2forge.alexandria</groupId>
+			<artifactId>ax-wizard</artifactId>
+			<version>${alexandria.version}</version>
+		</dependency>
+		<dependency>
 			<groupId>com.g2forge.gearbox</groupId>
 			<artifactId>gb-functional</artifactId>
 			<version>${gearbox.version}</version>
@@ -30,6 +35,11 @@
 		<dependency>
 			<groupId>com.g2forge.gearbox</groupId>
 			<artifactId>gb-git</artifactId>
+			<version>${gearbox.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.g2forge.gearbox</groupId>
+			<artifactId>gb-github</artifactId>
 			<version>${gearbox.version}</version>
 		</dependency>
 		<dependency>

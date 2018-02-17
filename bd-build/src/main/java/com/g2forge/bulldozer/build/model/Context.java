@@ -1,8 +1,14 @@
 package com.g2forge.bulldozer.build.model;
 
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import org.eclipse.jgit.api.Status;
+import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.errors.NoWorkTreeException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
@@ -46,6 +52,23 @@ public class Context<P extends BulldozerProject> {
 	private final Map<String, P> groupToProject = getProjects().values().stream().collect(Collectors.toMap(BulldozerProject::getGroup, IFunction1.identity()));
 
 	protected final Map<String, P> computeProjects() {
-		return new MavenProjects(getRoot().resolve(IMaven.POM_XML)).getProjects().stream().map(project -> getConstructor().apply(this, project)).collect(Collectors.toMap(BulldozerProject::getName, IFunction1.identity()));
+		final Map<String, P> retVal = new LinkedHashMap<>();
+		for (MavenProject mavenProject : new MavenProjects(getRoot().resolve(IMaven.POM_XML)).getProjects()) {
+			final P bulldozerProject = getConstructor().apply(this, mavenProject);
+			retVal.put(bulldozerProject.getName(), bulldozerProject);
+		}
+		return retVal;
+	}
+
+	public void failIfDirty() {
+		final List<BulldozerProject> dirty = getProjects().values().stream().filter(project -> {
+			try {
+				final Status status = project.getGit().status().call();
+				return !status.isClean() && !status.getUncommittedChanges().isEmpty();
+			} catch (NoWorkTreeException | GitAPIException e) {
+				throw new RuntimeException(String.format("Failure while attempting to check whether %1$s is dirty!", project.getName()), e);
+			}
+		}).collect(Collectors.toList());
+		if (!dirty.isEmpty()) throw new IllegalStateException(String.format("One or more projects were dirty (%1$s), please commit changes and try again!", dirty.stream().map(BulldozerProject::getName).collect(Collectors.joining(", "))));
 	}
 }
