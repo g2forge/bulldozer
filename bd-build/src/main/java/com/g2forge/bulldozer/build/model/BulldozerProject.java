@@ -22,10 +22,12 @@ import com.g2forge.alexandria.java.io.RuntimeIOException;
 import com.g2forge.alexandria.java.tuple.ITuple1G_;
 import com.g2forge.alexandria.java.tuple.ITuple2G_;
 import com.g2forge.alexandria.java.tuple.implementations.Tuple2G_I;
+import com.g2forge.bulldozer.build.github.GitHubRepositoryID;
 import com.g2forge.bulldozer.build.maven.Descriptor;
 import com.g2forge.bulldozer.build.maven.IMaven;
 import com.g2forge.bulldozer.build.maven.POM;
 import com.g2forge.bulldozer.build.model.maven.MavenProject;
+import com.g2forge.gearbox.git.GitConfig;
 import com.g2forge.gearbox.git.HGit;
 
 import lombok.AccessLevel;
@@ -60,6 +62,9 @@ public class BulldozerProject implements ICloseable {
 
 	@Getter(lazy = true)
 	private final BulldozerDependencies dependencies = computeDependencies();
+
+	@Getter(lazy = true)
+	private final GitHubRepositoryID githubMaster = GitHubRepositoryID.fromURL(new GitConfig(getGit()).getOrigin().getURL());
 
 	@Getter(lazy = true, value = AccessLevel.PROTECTED)
 	private final List<AutoCloseable> closeables = new ArrayList<>();

@@ -23,6 +23,10 @@ public class GitHubRepositoryID {
 
 	protected final String repository;
 
+	public String toGitHubName() {
+		return String.format("%1$s/%2$s", getOrganization(), getRepository());
+	}
+
 	public String toGitSSHURL() {
 		return String.format("git@github.com:%1$s/%2$s.git", getOrganization(), getRepository());
 	}

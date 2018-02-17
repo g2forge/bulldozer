@@ -63,6 +63,13 @@
 			<groupId>org.semver</groupId>
 			<artifactId>api</artifactId>
 			<version>0.9.33</version>
+			<exclusions>
+				<!-- Exclude an amazingly old version of the library! -->
+				<exclusion>
+					<groupId>commons-lang</groupId>
+					<artifactId>commons-lang</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 	</dependencies>
 </project>

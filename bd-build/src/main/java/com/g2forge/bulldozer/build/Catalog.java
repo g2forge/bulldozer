@@ -23,7 +23,6 @@ import org.slf4j.event.Level;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.g2forge.alexandria.log.HLog;
-import com.g2forge.bulldozer.build.github.GitHubRepositoryID;
 import com.g2forge.bulldozer.build.model.BulldozerProject;
 import com.g2forge.bulldozer.build.model.Context;
 import com.g2forge.bulldozer.build.model.maven.MavenProject;
@@ -46,7 +45,6 @@ import com.g2forge.enigma.document.Span.SpanBuilder;
 import com.g2forge.enigma.document.Text;
 import com.g2forge.enigma.document.convert.WikitextDocumentBuilder;
 import com.g2forge.enigma.document.convert.md.MDRenderer;
-import com.g2forge.gearbox.git.GitConfig;
 
 import lombok.Data;
 import net.sourceforge.plantuml.FileFormat;
@@ -88,9 +86,7 @@ public class Catalog {
 				final BulldozerProject project = projects.get(name);
 				final SpanBuilder item = Span.builder();
 
-				// Link to the github page for the repository
-				final GitHubRepositoryID repositoryID = GitHubRepositoryID.fromURL(new GitConfig(project.getGit()).getOrigin().getURL());
-				item.content(new Link(repositoryID.toWebsiteURL(), new Text(project.getPom().getName())));
+				item.content(new Link(project.getGithubMaster().toWebsiteURL(), new Text(project.getPom().getName())));
 
 				// If the project is public, add a link to the maven search
 				if (MavenProject.Protection.Public.equals(protection)) {
