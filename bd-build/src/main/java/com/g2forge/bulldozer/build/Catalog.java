@@ -1,6 +1,10 @@
 package com.g2forge.bulldozer.build;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -13,6 +17,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.mylyn.wikitext.markdown.MarkdownLanguage;
 import org.slf4j.event.Level;
 
 import com.fasterxml.jackson.core.JsonParseException;
@@ -29,11 +34,13 @@ import com.g2forge.enigma.diagram.klass.PUMLClassName;
 import com.g2forge.enigma.diagram.klass.PUMLRelation;
 import com.g2forge.enigma.document.Block;
 import com.g2forge.enigma.document.DocList;
+import com.g2forge.enigma.document.IBlock;
 import com.g2forge.enigma.document.Link;
 import com.g2forge.enigma.document.Section;
 import com.g2forge.enigma.document.Span;
 import com.g2forge.enigma.document.Span.SpanBuilder;
 import com.g2forge.enigma.document.Text;
+import com.g2forge.enigma.document.convert.WikitextDocumentBuilder;
 import com.g2forge.enigma.document.convert.md.MDRenderer;
 import com.g2forge.enigma.stringtemplate.EmbeddedTemplateRenderer;
 import com.g2forge.gearbox.git.GitConfig;
@@ -42,7 +49,6 @@ import lombok.Data;
 
 @Data
 public class Catalog {
-
 	public static void main(String[] args) throws JsonParseException, JsonMappingException, IOException, GitAPIException {
 		final Catalog catalog = new Catalog(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(args[0])));
 		catalog.catalog();
@@ -52,7 +58,7 @@ public class Catalog {
 
 	public void catalog() throws IOException, GitAPIException {
 		HLog.getLogControl().setLogLevel(Level.INFO);
-		final Block.BlockBuilder docBuilder = Block.builder();
+		final Block.BlockBuilder docBuilder = Block.builder().type(Block.Type.Block);
 		final Map<String, BulldozerProject> projects = getContext().getProjects();
 
 		// Create a list of the project names and sort it alphabetically
@@ -106,8 +112,7 @@ public class Catalog {
 
 					final PUMLClassName umlName = new PUMLClassName(project.getName());
 					dependencies.uclass(PUMLClass.builder().name(umlName).stereotype("(P,LightBlue)").build());
-					final Set<String> thingy = project.getDependencies().getImmediate().keySet();
-					thingy.stream().filter(inclusive::contains).forEach(d -> dependencies.relation(PUMLRelation.builder().left(new PUMLClassName(d)).type(PUMLRelation.Type.Arrow).right(umlName).build()));
+					project.getDependencies().getImmediate().keySet().stream().filter(inclusive::contains).forEach(d -> dependencies.relation(PUMLRelation.builder().left(new PUMLClassName(d)).type(PUMLRelation.Type.Arrow).right(umlName).build()));
 				}
 
 				// Render the diagram
@@ -115,6 +120,18 @@ public class Catalog {
 			}
 		}
 
-		System.out.println(new MDRenderer().render(Section.builder().title(new Text("Projects")).body(docBuilder.build()).build()));
+		{ // Rewrite the README.md
+			final Block input;
+			final Path readme = getContext().getRoot().resolve("README.md");
+			try (final BufferedReader reader = Files.newBufferedReader(readme)) {
+				input = WikitextDocumentBuilder.parse(new MarkdownLanguage(), reader);
+			}
+			final List<IBlock> contents = new ArrayList<>(input.getContents());
+			contents.set(1, Section.builder().title(new Text("Projects")).body(docBuilder.build()).build());
+			final Block output = Block.builder().type(Block.Type.Document).contents(contents).build();
+			try (final BufferedWriter writer = Files.newBufferedWriter(readme)) {
+				writer.write(new MDRenderer().render(output));
+			}
+		}
 	}
 }
