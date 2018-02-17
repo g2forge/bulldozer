@@ -9,10 +9,13 @@ import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.InvalidRemoteException;
 import org.eclipse.jgit.api.errors.TransportException;
 import org.eclipse.jgit.transport.RefSpec;
+import org.slf4j.event.Level;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.g2forge.alexandria.data.graph.HGraph;
+import com.g2forge.alexandria.java.core.helpers.HCollection;
+import com.g2forge.alexandria.log.HLog;
 import com.g2forge.alexandria.wizard.CommandLineStringInput;
 import com.g2forge.alexandria.wizard.UserStringInput;
 import com.g2forge.bulldozer.build.model.BulldozerProject;
@@ -34,16 +37,19 @@ public class CreatePRs {
 	protected final String branch;
 
 	public void createPRs() throws InvalidRemoteException, TransportException, GitAPIException {
+		HLog.getLogControl().setLogLevel(Level.INFO);
 		// Fail if any repositories are dirty
 		getContext().failIfDirty();
 
-		// Topologically sort the projects
-		final List<String> order = HGraph.toposort(getContext().getProjects().keySet(), p -> getContext().getNameToProject().get(p).getDependencies().getTransitive().keySet(), false);
 		// Find the projects which have the relevant branch
-		final List<BulldozerProject> projects = order.stream().map(getContext().getProjects()::get).filter(p -> HGit.isBranch(p.getGit(), getBranch())).collect(Collectors.toList());
+		final List<String> projects = getContext().getProjects().values().stream().filter(p -> HGit.isBranch(p.getGit(), getBranch())).map(BulldozerProject::getName).collect(Collectors.toList());
+		// Topologically sort the projects
+		final List<String> order = HGraph.toposort(projects, p -> HCollection.intersection(getContext().getNameToProject().get(p).getDependencies().getTransitive().keySet(), projects), false);
 
 		// In topological order...
-		for (BulldozerProject project : projects) {
+		for (String name : order) {
+			final BulldozerProject project = getContext().getProjects().get(name);
+
 			// Push the branch
 			final String remote = HGit.getMyRemote(project.getGit());
 			project.getGit().push().setRemote(remote).setRefSpecs(new RefSpec(getBranch() + ":" + getBranch())).call();
