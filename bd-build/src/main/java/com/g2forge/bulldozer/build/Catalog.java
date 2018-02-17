@@ -28,6 +28,8 @@ import com.g2forge.bulldozer.build.model.BulldozerProject;
 import com.g2forge.bulldozer.build.model.Context;
 import com.g2forge.bulldozer.build.model.maven.MavenProject;
 import com.g2forge.bulldozer.build.model.maven.MavenProject.Protection;
+import com.g2forge.enigma.diagram.PUMLContent;
+import com.g2forge.enigma.diagram.PUMLControl;
 import com.g2forge.enigma.diagram.klass.PUMLClass;
 import com.g2forge.enigma.diagram.klass.PUMLClassDiagram;
 import com.g2forge.enigma.diagram.klass.PUMLClassName;
@@ -35,17 +37,19 @@ import com.g2forge.enigma.diagram.klass.PUMLRelation;
 import com.g2forge.enigma.document.Block;
 import com.g2forge.enigma.document.DocList;
 import com.g2forge.enigma.document.IBlock;
+import com.g2forge.enigma.document.Image;
 import com.g2forge.enigma.document.Link;
 import com.g2forge.enigma.document.Section;
+import com.g2forge.enigma.document.Section.SectionBuilder;
 import com.g2forge.enigma.document.Span;
 import com.g2forge.enigma.document.Span.SpanBuilder;
 import com.g2forge.enigma.document.Text;
 import com.g2forge.enigma.document.convert.WikitextDocumentBuilder;
 import com.g2forge.enigma.document.convert.md.MDRenderer;
-import com.g2forge.enigma.stringtemplate.EmbeddedTemplateRenderer;
 import com.g2forge.gearbox.git.GitConfig;
 
 import lombok.Data;
+import net.sourceforge.plantuml.FileFormat;
 
 @Data
 public class Catalog {
@@ -101,22 +105,37 @@ public class Catalog {
 			}
 			// If we found any projects in this protection profile, then generate a section with the list of projects
 			final DocList list = listBuilder.build();
-			if (!list.getItems().isEmpty()) docBuilder.content(Section.builder().title(new Text(protection.name())).body(list).build());
+			if (!list.getItems().isEmpty()) {
+				final SectionBuilder section = Section.builder().title(new Text(protection.name()));
 
-			if (MavenProject.Protection.Sandbox.compareTo(protection) > 0) {
-				final PUMLClassDiagram.PUMLClassDiagramBuilder dependencies = PUMLClassDiagram.builder();
-				// Add the project to the dependencies diagram for this protection if it's more public that the protection
-				final Set<String> inclusive = ordered.stream().filter(protectionProfilesInclusive.get(protection)::contains).collect(Collectors.toCollection(LinkedHashSet::new));
-				for (String name : inclusive) {
-					final BulldozerProject project = projects.get(name);
+				// Generate the dependency diagram
+				if (MavenProject.Protection.Sandbox.compareTo(protection) > 0) {
+					final PUMLClassDiagram.PUMLClassDiagramBuilder dependencies = PUMLClassDiagram.builder();
+					// Add the project to the dependencies diagram for this protection if it's more public that the protection
+					final Set<String> inclusive = ordered.stream().filter(protectionProfilesInclusive.get(protection)::contains).collect(Collectors.toCollection(LinkedHashSet::new));
+					for (String name : inclusive) {
+						final BulldozerProject project = projects.get(name);
 
-					final PUMLClassName umlName = new PUMLClassName(project.getName());
-					dependencies.uclass(PUMLClass.builder().name(umlName).stereotype("(P,LightBlue)").build());
-					project.getDependencies().getImmediate().keySet().stream().filter(inclusive::contains).forEach(d -> dependencies.relation(PUMLRelation.builder().left(new PUMLClassName(d)).type(PUMLRelation.Type.Arrow).right(umlName).build()));
-				}
+						final PUMLClassName umlName = new PUMLClassName(project.getName());
+						dependencies.uclass(PUMLClass.builder().name(umlName).stereotype("(P,LightBlue)").build());
+						project.getDependencies().getImmediate().keySet().stream().filter(inclusive::contains).forEach(d -> dependencies.relation(PUMLRelation.builder().left(new PUMLClassName(d)).type(PUMLRelation.Type.Arrow).right(umlName).build()));
+					}
 
-				// Render the diagram
-				System.out.println(EmbeddedTemplateRenderer.DEFAULT.render(dependencies.build()));
+					// Render the diagram
+					final Path images = getContext().getRoot().resolve("images");
+					Files.createDirectories(images);
+					final PUMLContent.PUMLContentBuilder builder = PUMLContent.builder().diagram(dependencies.build());
+					builder.control(PUMLControl.builder().shadowing(false).dpi(150).background(PUMLControl.Color.Transparent).build());
+					final Path png = builder.build().toFile(images.resolve("dependencies_" + protection.name().toLowerCase()), FileFormat.PNG);
+
+					// Add the diagram into the MD
+					final Block.BlockBuilder block = Block.builder().type(Block.Type.Block);
+					block.content(Image.builder().alt(protection.name().toLowerCase() + " dependencies").url("images/" + png.getFileName().toString()).build());
+					block.content(list);
+					section.body(block.build());
+				} else section.body(list);
+
+				docBuilder.content(section.build());
 			}
 		}
 
