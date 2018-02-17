@@ -4,7 +4,13 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.slf4j.event.Level;
@@ -16,6 +22,11 @@ import com.g2forge.bulldozer.build.github.GitHubRepositoryID;
 import com.g2forge.bulldozer.build.model.BulldozerProject;
 import com.g2forge.bulldozer.build.model.Context;
 import com.g2forge.bulldozer.build.model.maven.MavenProject;
+import com.g2forge.bulldozer.build.model.maven.MavenProject.Protection;
+import com.g2forge.enigma.diagram.klass.PUMLClass;
+import com.g2forge.enigma.diagram.klass.PUMLClassDiagram;
+import com.g2forge.enigma.diagram.klass.PUMLClassName;
+import com.g2forge.enigma.diagram.klass.PUMLRelation;
 import com.g2forge.enigma.document.Block;
 import com.g2forge.enigma.document.DocList;
 import com.g2forge.enigma.document.Link;
@@ -24,6 +35,7 @@ import com.g2forge.enigma.document.Span;
 import com.g2forge.enigma.document.Span.SpanBuilder;
 import com.g2forge.enigma.document.Text;
 import com.g2forge.enigma.document.convert.md.MDRenderer;
+import com.g2forge.enigma.stringtemplate.EmbeddedTemplateRenderer;
 import com.g2forge.gearbox.git.GitConfig;
 
 import lombok.Data;
@@ -40,21 +52,30 @@ public class Catalog {
 
 	public void catalog() throws IOException, GitAPIException {
 		HLog.getLogControl().setLogLevel(Level.INFO);
-		final Block.BlockBuilder projectsBuilder = Block.builder();
+		final Block.BlockBuilder docBuilder = Block.builder();
+		final Map<String, BulldozerProject> projects = getContext().getProjects();
 
 		// Create a list of the project names and sort it alphabetically
-		final List<String> ordered = new ArrayList<>(getContext().getProjects().keySet());
+		final List<String> ordered = new ArrayList<>(projects.keySet());
 		Collections.sort(ordered);
+
+		// Create an inclusive and exclusive list of projects
+		final Map<Protection, Set<String>> protectionProfilesExclusive = projects.values().stream().collect(Collectors.groupingBy(p -> p.getProject().getProtection(), Collectors.mapping(p -> p.getName(), Collectors.toSet())));
+		final Map<Protection, Set<String>> protectionProfilesInclusive = new HashMap<>();
+		for (MavenProject.Protection protection : MavenProject.Protection.values()) {
+			final Set<String> names = new HashSet<>();
+			for (int i = 0; i <= protection.ordinal(); i++) {
+				names.addAll(protectionProfilesExclusive.get(MavenProject.Protection.values()[i]));
+			}
+			protectionProfilesInclusive.put(protection, names);
+		}
 
 		// Loop over all the different protection profiles
 		for (MavenProject.Protection protection : MavenProject.Protection.values()) {
 			// Build a list of projects in this protection profile
 			final DocList.DocListBuilder listBuilder = DocList.builder().marker(DocList.Marker.Ordered);
-			for (String name : ordered) {
-				final BulldozerProject project = getContext().getProjects().get(name);
-				// This is where we skip projects not in this protection profile (could use streaming groupby in the future)
-				if (!protection.equals(project.getProject().getProtection())) continue;
-
+			for (String name : ordered.stream().filter(protectionProfilesExclusive.get(protection)::contains).collect(Collectors.toList())) {
+				final BulldozerProject project = projects.get(name);
 				final SpanBuilder item = Span.builder();
 
 				// Link to the github page for the repository
@@ -74,9 +95,26 @@ public class Catalog {
 			}
 			// If we found any projects in this protection profile, then generate a section with the list of projects
 			final DocList list = listBuilder.build();
-			if (!list.getItems().isEmpty()) projectsBuilder.content(Section.builder().title(new Text(protection.name())).body(list).build());
+			if (!list.getItems().isEmpty()) docBuilder.content(Section.builder().title(new Text(protection.name())).body(list).build());
+
+			if (MavenProject.Protection.Sandbox.compareTo(protection) > 0) {
+				final PUMLClassDiagram.PUMLClassDiagramBuilder dependencies = PUMLClassDiagram.builder();
+				// Add the project to the dependencies diagram for this protection if it's more public that the protection
+				final Set<String> inclusive = ordered.stream().filter(protectionProfilesInclusive.get(protection)::contains).collect(Collectors.toCollection(LinkedHashSet::new));
+				for (String name : inclusive) {
+					final BulldozerProject project = projects.get(name);
+
+					final PUMLClassName umlName = new PUMLClassName(project.getName());
+					dependencies.uclass(PUMLClass.builder().name(umlName).stereotype("(P,LightBlue)").build());
+					final Set<String> thingy = project.getDependencies().getImmediate().keySet();
+					thingy.stream().filter(inclusive::contains).forEach(d -> dependencies.relation(PUMLRelation.builder().left(new PUMLClassName(d)).type(PUMLRelation.Type.Arrow).right(umlName).build()));
+				}
+
+				// Render the diagram
+				System.out.println(EmbeddedTemplateRenderer.DEFAULT.render(dependencies.build()));
+			}
 		}
 
-		System.out.println(new MDRenderer().render(Section.builder().title(new Text("Projects")).body(projectsBuilder.build()).build()));
+		System.out.println(new MDRenderer().render(Section.builder().title(new Text("Projects")).body(docBuilder.build()).build()));
 	}
 }

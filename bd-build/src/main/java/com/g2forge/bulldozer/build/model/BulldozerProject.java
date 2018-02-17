@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -20,6 +19,9 @@ import com.g2forge.alexandria.java.function.IFunction1;
 import com.g2forge.alexandria.java.function.ISupplier;
 import com.g2forge.alexandria.java.io.HIO;
 import com.g2forge.alexandria.java.io.RuntimeIOException;
+import com.g2forge.alexandria.java.tuple.ITuple1G_;
+import com.g2forge.alexandria.java.tuple.ITuple2G_;
+import com.g2forge.alexandria.java.tuple.implementations.Tuple2G_I;
 import com.g2forge.bulldozer.build.maven.Descriptor;
 import com.g2forge.bulldozer.build.maven.IMaven;
 import com.g2forge.bulldozer.build.maven.POM;
@@ -57,7 +59,7 @@ public class BulldozerProject implements ICloseable {
 	private final POM pom = computePOM();
 
 	@Getter(lazy = true)
-	private final Map<String, String> dependencies = computeDependencies();
+	private final BulldozerDependencies dependencies = computeDependencies();
 
 	@Getter(lazy = true, value = AccessLevel.PROTECTED)
 	private final List<AutoCloseable> closeables = new ArrayList<>();
@@ -67,29 +69,38 @@ public class BulldozerProject implements ICloseable {
 		HIO.closeAll(getCloseables());
 	}
 
-	protected Map<String, String> computeDependencies() {
+	protected BulldozerDependencies computeDependencies() {
 		final Map<String, ? extends BulldozerProject> nameToProject = getContext().getNameToProject();
 		final Map<String, ? extends BulldozerProject> groupToProject = getContext().getGroupToProject();
 		return loadTemp(BulldozerTemp::getDependencies, BulldozerTemp::setDependencies, () -> {
 			final String name = getName();
 			log.info("Loading dependencies for {}", name);
 			// Run maven dependencies and filter the output down to usable information
-			final Map<String, List<Descriptor>> grouped = getContext().getMaven().dependencyTree(getContext().getRoot().resolve(name), true, groupToProject.keySet().stream().map(g -> g + ":*").collect(Collectors.toList()))/*.map(new TapFunction<>(System.out::println))*/.filter(line -> {
+			final Map<String, List<ITuple2G_<Descriptor, Boolean>>> grouped = getContext().getMaven().dependencyTree(getContext().getRoot().resolve(name), true, groupToProject.keySet().stream().map(g -> g + ":*").collect(Collectors.toList()))/*.map(new TapFunction<>(System.out::println))*/.filter(line -> {
 				if (!line.startsWith("[INFO]")) return false;
 				for (BulldozerProject publicProject : nameToProject.values()) {
 					if (line.contains("- " + publicProject.getGroup())) return true;
 				}
 				return false;
-			}).map(line -> Descriptor.fromString(line.substring(line.indexOf("- ") + 2))).filter(descriptor -> !descriptor.getGroup().equals(nameToProject.get(name).getGroup())).collect(Collectors.groupingBy(Descriptor::getGroup));
+			}).map(line -> new Tuple2G_I<>(Descriptor.fromString(line.substring(line.indexOf("- ") + 2)), line.startsWith("[INFO] \\- ") || line.startsWith("[INFO] +- "))).filter(t -> !t.get0().getGroup().equals(nameToProject.get(name).getGroup())).collect(Collectors.groupingBy(t -> t.get0().getGroup()));
 			// Extract the per-project version and make sure we only ever depend on one version
-			final Map<String, String> retVal = new LinkedHashMap<>();
-			for (List<Descriptor> descriptors : grouped.values()) {
-				final Set<String> groupVersions = descriptors.stream().map(Descriptor::getVersion).collect(Collectors.toSet());
-				if (groupVersions.size() > 1) throw new IllegalArgumentException(String.format("%3$s depends on multiple versions of the project \"%1$s\": %2$s", descriptors.get(0).getGroup(), groupVersions, name));
-				final String group = descriptors.get(0).getGroup();
-				retVal.put(groupToProject.get(group).getName(), HCollection.getOne(groupVersions));
+			final BulldozerDependencies.BulldozerDependenciesBuilder builder = BulldozerDependencies.builder();
+			for (List<ITuple2G_<Descriptor, Boolean>> tuples : grouped.values()) {
+				// Aside from versions we only have to look at the first tuple, since they're all the same
+				final String group = tuples.get(0).get0().getGroup();
+
+				final Set<String> versions = tuples.stream().map(ITuple1G_::get0).map(Descriptor::getVersion).collect(Collectors.toSet());
+				if (versions.size() > 1) throw new IllegalArgumentException(String.format("%3$s depends on multiple versions of the project \"%1$s\": %2$s", group, versions, name));
+				final String version = HCollection.getOne(versions);
+				final String dependency = groupToProject.get(group).getName();
+
+				// If any of the dependencies are immediate, then the project dependency is
+				final boolean immediate = tuples.stream().filter(ITuple2G_::get1).findAny().isPresent();
+				if (immediate) builder.immediate(dependency, version);
+				builder.transitive(dependency, version);
 			}
-			log.info("Found dependencies for {}: {}", name, retVal);
+			final BulldozerDependencies retVal = builder.build();
+			log.info("Found dependencies for {}: {}", name, retVal.getTransitive().keySet());
 			return retVal;
 		});
 	}
@@ -122,8 +133,8 @@ public class BulldozerProject implements ICloseable {
 		final String commit;
 		try {
 			commit = getGit().getRepository().findRef(Constants.HEAD).getObjectId().getName();
-		} catch (IOException e) {
-			throw new RuntimeIOException(e);
+		} catch (IOException exception) {
+			throw new RuntimeIOException(String.format("Failed to determine commit for %1$s!", getName()), exception);
 		}
 
 		final Path path = getDirectory().resolve(BulldozerTemp.BULLDOZER_TEMP);
@@ -131,25 +142,30 @@ public class BulldozerProject implements ICloseable {
 		if (Files.exists(path)) {
 			try {
 				final BulldozerTemp read = getContext().getObjectMapper().readValue(path.toFile(), BulldozerTemp.class);
-				if (read.getHash().equals(commit)) temp = read;
+				if (read.getKey().equals(commit)) temp = read;
 				else Files.delete(path);
-			} catch (IOException e) {
-				throw new RuntimeIOException(e);
+			} catch (IOException exception) {
+				log.warn(String.format("Failed to read bulldozer temp data for %1$s, will regenerate...", getName()));
 			}
 		}
 		if (temp == null) {
 			temp = new BulldozerTemp();
-			temp.setHash(commit);
+			temp.setKey(commit);
 		}
 		final T retVal0 = getter.apply(temp);
 		if (retVal0 != null) return retVal0;
 
-		final T retVal1 = generator.get();
+		final T retVal1;
+		try {
+			retVal1 = generator.get();
+		} catch (Throwable throwable) {
+			throw new RuntimeException(String.format("Failed to generate temp data for %1$s!", getName()), throwable);
+		}
 		setter.accept(temp, retVal1);
 		try {
 			getContext().getObjectMapper().writeValue(path.toFile(), temp);
-		} catch (IOException e) {
-			throw new RuntimeIOException(e);
+		} catch (IOException exception) {
+			throw new RuntimeIOException(String.format("Failed to update bulldozer temp data for %1$s!", getName()), exception);
 		}
 		return retVal1;
 	}

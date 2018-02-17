@@ -180,7 +180,7 @@ public class Build {
 
 			// Compute the order in which to build the public projects
 			log.info("Planning builder order");
-			final List<String> order = HGraph.toposort(targets, p -> getContext().getNameToProject().get(p).getDependencies().keySet(), false);
+			final List<String> order = HGraph.toposort(targets, p -> getContext().getNameToProject().get(p).getDependencies().getTransitive().keySet(), false);
 			log.info("Build order: {}", order);
 
 			{ // Make sure none of the tags already exist
