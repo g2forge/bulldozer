@@ -48,12 +48,12 @@ import lombok.extern.slf4j.Slf4j;
 
 @Data
 @Slf4j
-public class Build {
-	public static class BuildProject extends BulldozerProject {
+public class Release {
+	public static class ReleaseProject extends BulldozerProject {
 		@Getter(lazy = true)
 		private final ReleaseProperties releaseProperties = computeReleaseProperties();
 
-		public BuildProject(Context<BuildProject> context, MavenProject project) {
+		public ReleaseProject(Context<ReleaseProject> context, MavenProject project) {
 			super(context, project);
 		}
 
@@ -93,8 +93,7 @@ public class Build {
 
 		public ReleaseProperties predictReleaseProperties() {
 			final ReleaseProperties.ReleasePropertiesBuilder retVal = ReleaseProperties.builder();
-			final Version prior = Version.parse(getVersion());
-			final Version release = prior.toReleaseVersion();
+			final Version release = Version.parse(getVersion()).toReleaseVersion();
 			final String releaseVersion = release.toString();
 			retVal.release(releaseVersion);
 			retVal.tag(releaseVersion);
@@ -147,11 +146,11 @@ public class Build {
 	protected static final List<String> PROFILES_TO_UPDATE = Stream.of(MavenProject.Protection.values()).filter(p -> !MavenProject.Protection.Public.equals(p)).map(p -> p.name().toLowerCase()).collect(Collectors.toList());
 
 	public static void main(String[] args) throws JsonParseException, JsonMappingException, IOException, GitAPIException {
-		final Build build = new Build(new Context<BuildProject>(BuildProject::new, Paths.get(args[0])), args[1], HCollection.asList(Arrays.copyOfRange(args, 2, args.length)));
-		build.build();
+		final Release release = new Release(new Context<ReleaseProject>(ReleaseProject::new, Paths.get(args[0])), args[1], HCollection.asList(Arrays.copyOfRange(args, 2, args.length)));
+		release.release();
 	}
 
-	protected final Context<BuildProject> context;
+	protected final Context<ReleaseProject> context;
 
 	protected final String issue;
 
@@ -159,27 +158,27 @@ public class Build {
 
 	protected final boolean allowDirty = new PropertyStringInput("bulldozer.allowdirty").map(Boolean::valueOf).fallback(NullableOptional.of(false)).get();
 
-	public void build() throws IOException, GitAPIException {
+	public void release() throws IOException, GitAPIException {
 		HLog.getLogControl().setLogLevel(Level.INFO);
-		log.info("Building: {}", getTargets());
+		log.info("Releasing: {}", getTargets());
 
 		// Load information about all the projects
 		log.info("Loading project information");
 		try {
 			// Print a list of the public projects
-			final List<BuildProject> publicProjects = getContext().getProjects().values().stream().filter(project -> MavenProject.Protection.Public.equals(project.getProject().getProtection())).collect(Collectors.toList());
+			final List<ReleaseProject> publicProjects = getContext().getProjects().values().stream().filter(project -> MavenProject.Protection.Public.equals(project.getProject().getProtection())).collect(Collectors.toList());
 			log.info("Public projects: {}", publicProjects.stream().map(BulldozerProject::getName).collect(Collectors.joining(", ")));
 
 			// Check for uncommitted changes in any project, and fail
 			if (!allowDirty) getContext().failIfDirty();
 
-			// Compute the order in which to build the public projects
-			log.info("Planning builder order");
+			// Compute the order in which to release the public projects
+			log.info("Planning release order");
 			final List<String> order = HGraph.toposort(targets, p -> getContext().getNameToProject().get(p).getDependencies().getTransitive().keySet(), false);
-			log.info("Build order: {}", order);
+			log.info("Release order: {}", order);
 
 			if (!allowDirty) { // Make sure none of the tags already exist
-				final List<BuildProject> tagged = order.stream().map(getContext().getProjects()::get).filter(project -> {
+				final List<ReleaseProject> tagged = order.stream().map(getContext().getProjects()::get).filter(project -> {
 					final ReleaseProperties releaseProperties = project.predictReleaseProperties();
 					try {
 						return project.getGit().getRepository().findRef(Constants.R_TAGS + releaseProperties.getTag()) != null;
@@ -193,7 +192,7 @@ public class Build {
 			// Prepare all the releases
 			for (String name : order) {
 				log.info("Preparing {}", name);
-				final BuildProject project = getContext().getProjects().get(name);
+				final ReleaseProject project = getContext().getProjects().get(name);
 				final Git git = project.getGit();
 
 				Phase phase = project.getPhase();
@@ -233,7 +232,7 @@ public class Build {
 			// Perform the releases
 			for (String name : order) {
 				log.info("Releasing {}", name);
-				final BuildProject project = getContext().getProjects().get(name);
+				final ReleaseProject project = getContext().getProjects().get(name);
 
 				if (Phase.Released.compareTo(project.getPhase()) > 0) {
 					final Git git = project.getGit();
@@ -250,7 +249,7 @@ public class Build {
 			// Restarting development
 			for (String name : order) {
 				log.info("Restarting development of {}", name);
-				final BuildProject project = getContext().getProjects().get(name);
+				final ReleaseProject project = getContext().getProjects().get(name);
 				Phase phase = project.getPhase();
 
 				if (Phase.InstalledDevelopment.compareTo(phase) > 0) {
@@ -285,7 +284,7 @@ public class Build {
 			// Cleanup
 			for (String name : order) {
 				log.info("Cleaning up temporary release install of {}", name);
-				final BuildProject project = getContext().getProjects().get(name);
+				final ReleaseProject project = getContext().getProjects().get(name);
 				Phase phase = project.getPhase();
 
 				if (Phase.DeletedRelease.compareTo(phase) > 0) {
