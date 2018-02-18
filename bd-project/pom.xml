@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.g2forge.bulldozer</groupId>
 	<artifactId>bd-project</artifactId>
-	<version>0.0.1</version>
+	<version>0.0.2-SNAPSHOT</version>
 	<packaging>pom</packaging>
 
 	<parent>
@@ -44,7 +44,7 @@
 		<connection>scm:git:git://github.com/${bulldozer.organization}/${bulldozer.repository}.git</connection>
 		<developerConnection>scm:git:ssh://github.com:${bulldozer.organization}/${bulldozer.repository}.git</developerConnection>
 		<url>http://github.com/${bulldozer.organization}/${bulldozer.repository}/tree/${project.version}</url>
-	  <tag>0.0.1</tag>
+	  <tag>HEAD</tag>
   </scm>
 
 	<build>
