@@ -265,17 +265,24 @@ public class Build {
 				if (Phase.InstalledDevelopment.compareTo(phase) > 0) {
 					// Check out the branch head
 					project.getGit().checkout().setCreateBranch(false).setName(getBranch()).call();
-
 					// Maven install (stream stdio to the console) the new development versions
 					getContext().getMaven().install(project.getDirectory());
+
+					log.info("Updating downstream {}", name);
+					for (BulldozerProject downstream : getContext().getProjects().values()) {
+						// Skip ourselves
+						if (downstream == project) continue;
+						// Update all the downstreams to new snapshot versions
+						getContext().getMaven().updateVersions(downstream.getDirectory(), true, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
+					}
+
 					phase = project.updatePhase(Phase.InstalledDevelopment);
 				}
 			}
 
-			log.info("Updating downstream projects");
+			// Commit anything dirty, since those are the things with version updates
+			log.info("Committing downstream projects");
 			for (BulldozerProject project : getContext().getProjects().values()) {
-				// Update all the downstreams to new snapshot versions
-				getContext().getMaven().updateVersions(project.getDirectory(), true, PROFILES_TO_UPDATE, order.stream().map(getContext().getProjects()::get).map(BulldozerProject::getGroup).map(g -> g + ":*").collect(Collectors.toList()));
 				// Commit anything dirty, since those are the things with version updates
 				commitUpstreamReversion(project.getGit());
 			}
