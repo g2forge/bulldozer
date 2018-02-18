@@ -221,6 +221,8 @@ public class Build {
 					for (BulldozerProject downstream : getContext().getProjects().values()) {
 						// Skip ourselves
 						if (downstream == project) continue;
+						// Update all the downstreams to new release versions
+						switchToBranch(downstream.getGit());
 						getContext().getMaven().updateVersions(downstream.getDirectory(), false, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
 					}
 
@@ -263,6 +265,7 @@ public class Build {
 						// Skip ourselves
 						if (downstream == project) continue;
 						// Update all the downstreams to new snapshot versions
+						switchToBranch(downstream.getGit());
 						getContext().getMaven().updateVersions(downstream.getDirectory(), true, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
 					}
 
@@ -274,6 +277,7 @@ public class Build {
 			log.info("Committing downstream projects");
 			for (BulldozerProject project : getContext().getProjects().values()) {
 				// Commit anything dirty, since those are the things with version updates
+				switchToBranch(project.getGit());
 				commitUpstreamReversion(project.getGit());
 			}
 
@@ -305,8 +309,6 @@ public class Build {
 	protected void commitUpstreamReversion(final Git git) throws IOException, GitAPIException {
 		final Status status = git.status().call();
 		if (!status.isClean() && !status.getUncommittedChanges().isEmpty()) {
-			switchToBranch(git);
-
 			final AddCommand add = git.add();
 			status.getUncommittedChanges().forEach(add::addFilepattern);
 			add.call();
