@@ -219,8 +219,8 @@ public class Build {
 					// Update everyone who consumes this project (including the private consumers!) to the new version (and commit)
 					log.info("Updating downstream {}", name);
 					for (BulldozerProject downstream : getContext().getProjects().values()) {
-						// Skip ourselves
-						if (downstream == project) continue;
+						// Skip ourselves & projects that don't depend on us
+						if ((downstream == project) || !downstream.getDependencies().getTransitive().keySet().contains(name)) continue;
 						// Update all the downstreams to new release versions
 						switchToBranch(downstream.getGit());
 						getContext().getMaven().updateVersions(downstream.getDirectory(), false, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
@@ -240,7 +240,6 @@ public class Build {
 
 					// Check out the branch head
 					git.checkout().setCreateBranch(false).setName(getBranch()).call();
-
 					// Perform the release
 					getContext().getMaven().releasePerform(project.getDirectory());
 
@@ -262,8 +261,8 @@ public class Build {
 
 					log.info("Updating downstream {}", name);
 					for (BulldozerProject downstream : getContext().getProjects().values()) {
-						// Skip ourselves
-						if (downstream == project) continue;
+						// Skip ourselves & projects that don't depend on us
+						if ((downstream == project) || !downstream.getDependencies().getTransitive().keySet().contains(name)) continue;
 						// Update all the downstreams to new snapshot versions
 						switchToBranch(downstream.getGit());
 						getContext().getMaven().updateVersions(downstream.getDirectory(), true, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
@@ -290,13 +289,14 @@ public class Build {
 				Phase phase = project.getPhase();
 
 				if (Phase.DeletedRelease.compareTo(phase) > 0) {
+					final String releaseVersion = Version.parse(project.getVersion()).toReleaseVersion().toString();
 					// Remove the maven temporary install of the new release version
 					Path current = repository;
 					for (String component : project.getGroup().split("\\.")) {
 						current = current.resolve(component);
 					}
 					for (String artifact : HCollection.concatenate(HCollection.asList(name), project.getPom().getModules())) {
-						HFile.delete(current.resolve(artifact).resolve(project.getReleaseProperties().getRelease()));
+						HFile.delete(current.resolve(artifact).resolve(releaseVersion));
 					}
 					phase = project.updatePhase(Phase.DeletedRelease);
 				}
