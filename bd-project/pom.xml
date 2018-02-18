@@ -1,23 +1,22 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.g2forge.bulldozer</groupId>
 	<artifactId>bd-project</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.0.2-SNAPSHOT</version>
 	<packaging>pom</packaging>
 
 	<parent>
 		<groupId>com.g2forge.alexandria</groupId>
 		<artifactId>ax-project</artifactId>
-		<version>0.0.7-SNAPSHOT</version>
+		<version>0.0.8-SNAPSHOT</version>
 		<relativePath>../../alexandria/ax-project/pom.xml</relativePath>
 	</parent>
 
 	<properties>
-		<alexandria.version>0.0.7-SNAPSHOT</alexandria.version>
-		<gearbox.version>0.0.2-SNAPSHOT</gearbox.version>
-		<enigma.version>0.0.4-SNAPSHOT</enigma.version>
+		<alexandria.version>0.0.8-SNAPSHOT</alexandria.version>
+		<gearbox.version>0.0.3-SNAPSHOT</gearbox.version>
+		<enigma.version>0.0.5-SNAPSHOT</enigma.version>
 
 		<bulldozer.organization>g2forge</bulldozer.organization>
 		<bulldozer.name>Bulldozer</bulldozer.name>
@@ -45,7 +44,8 @@
 		<connection>scm:git:git://github.com/${bulldozer.organization}/${bulldozer.repository}.git</connection>
 		<developerConnection>scm:git:ssh://github.com:${bulldozer.organization}/${bulldozer.repository}.git</developerConnection>
 		<url>http://github.com/${bulldozer.organization}/${bulldozer.repository}/tree/${project.version}</url>
-	</scm>
+	  <tag>HEAD</tag>
+  </scm>
 
 	<build>
 		<plugins>
@@ -70,6 +70,15 @@
 								<dependency>
 									<groupId>com.g2forge.gearbox</groupId>
 									<artifactId>gearbox</artifactId>
+								</dependency>
+							</dependencies>
+						</property>
+						<property>
+							<name>enigma.version</name>
+							<dependencies>
+								<dependency>
+									<groupId>com.g2forge.enigma</groupId>
+									<artifactId>enigma</artifactId>
 								</dependency>
 							</dependencies>
 						</property>
