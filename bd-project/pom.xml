@@ -73,6 +73,15 @@
 								</dependency>
 							</dependencies>
 						</property>
+						<property>
+							<name>enigma.version</name>
+							<dependencies>
+								<dependency>
+									<groupId>com.g2forge.enigma</groupId>
+									<artifactId>enigma</artifactId>
+								</dependency>
+							</dependencies>
+						</property>
 					</properties>
 				</configuration>
 			</plugin>
