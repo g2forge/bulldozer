@@ -28,10 +28,12 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.g2forge.alexandria.data.graph.HGraph;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
+import com.g2forge.alexandria.java.fluent.optional.NullableOptional;
 import com.g2forge.alexandria.java.io.HFile;
 import com.g2forge.alexandria.java.io.HIO;
 import com.g2forge.alexandria.java.io.RuntimeIOException;
 import com.g2forge.alexandria.log.HLog;
+import com.g2forge.alexandria.wizard.PropertyStringInput;
 import com.g2forge.bulldozer.build.maven.IMaven;
 import com.g2forge.bulldozer.build.model.BulldozerProject;
 import com.g2forge.bulldozer.build.model.Context;
@@ -116,8 +118,8 @@ public class Build {
 		Prepared,
 		InstalledRelease,
 		Released,
-		DeletedRelease,
 		InstalledDevelopment,
+		DeletedRelease,
 	}
 
 	@Data
@@ -155,6 +157,8 @@ public class Build {
 
 	protected final List<String> targets;
 
+	protected final boolean allowDirty = new PropertyStringInput("bulldozer.allowdirty").map(Boolean::valueOf).fallback(NullableOptional.of(false)).get();
+
 	public void build() throws IOException, GitAPIException {
 		HLog.getLogControl().setLogLevel(Level.INFO);
 		log.info("Building: {}", getTargets());
@@ -167,14 +171,14 @@ public class Build {
 			log.info("Public projects: {}", publicProjects.stream().map(BulldozerProject::getName).collect(Collectors.joining(", ")));
 
 			// Check for uncommitted changes in any project, and fail
-			getContext().failIfDirty();
+			if (!allowDirty) getContext().failIfDirty();
 
 			// Compute the order in which to build the public projects
 			log.info("Planning builder order");
 			final List<String> order = HGraph.toposort(targets, p -> getContext().getNameToProject().get(p).getDependencies().getTransitive().keySet(), false);
 			log.info("Build order: {}", order);
 
-			{ // Make sure none of the tags already exist
+			if (!allowDirty) { // Make sure none of the tags already exist
 				final List<BuildProject> tagged = order.stream().map(getContext().getProjects()::get).filter(project -> {
 					final ReleaseProperties releaseProperties = project.predictReleaseProperties();
 					try {
@@ -212,15 +216,15 @@ public class Build {
 					// Maven install (stream stdio to the console) the newly created release version
 					getContext().getMaven().install(project.getDirectory());
 
-					phase = project.updatePhase(Phase.InstalledRelease);
-				}
+					// Update everyone who consumes this project (including the private consumers!) to the new version (and commit)
+					log.info("Updating downstream {}", name);
+					for (BulldozerProject downstream : getContext().getProjects().values()) {
+						// Skip ourselves
+						if (downstream == project) continue;
+						getContext().getMaven().updateVersions(downstream.getDirectory(), false, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
+					}
 
-				// Update everyone who consumes this project (including the private consumers!) to the new version (and commit)
-				log.info("Updating downstream {}", name);
-				for (BulldozerProject downstream : getContext().getProjects().values()) {
-					// Skip ourselves
-					if (downstream == project) continue;
-					getContext().getMaven().updateVersions(downstream.getDirectory(), false, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
+					phase = project.updatePhase(Phase.InstalledRelease);
 				}
 			}
 
@@ -242,25 +246,11 @@ public class Build {
 				}
 			}
 
-			// Find the local maven repository
-			final Path repository = Paths.get(getContext().getMaven().evaluate(getContext().getRoot(), "settings.localRepository"));
-			// Cleanup
+			// Restarting development
 			for (String name : order) {
 				log.info("Restarting development of {}", name);
 				final BuildProject project = getContext().getProjects().get(name);
 				Phase phase = project.getPhase();
-
-				if (Phase.DeletedRelease.compareTo(phase) > 0) {
-					// Remove the maven temporary install of the new release version
-					Path current = repository;
-					for (String component : project.getGroup().split("\\.")) {
-						current = current.resolve(component);
-					}
-					for (String artifact : HCollection.concatenate(HCollection.asList(name), project.getPom().getModules())) {
-						HFile.delete(current.resolve(artifact).resolve(project.getReleaseProperties().getRelease()));
-					}
-					phase = project.updatePhase(Phase.DeletedRelease);
-				}
 
 				if (Phase.InstalledDevelopment.compareTo(phase) > 0) {
 					// Check out the branch head
@@ -285,6 +275,27 @@ public class Build {
 			for (BulldozerProject project : getContext().getProjects().values()) {
 				// Commit anything dirty, since those are the things with version updates
 				commitUpstreamReversion(project.getGit());
+			}
+
+			// Find the local maven repository
+			final Path repository = Paths.get(getContext().getMaven().evaluate(getContext().getRoot(), "settings.localRepository"));
+			// Cleanup
+			for (String name : order) {
+				log.info("Cleaning up temporary release install of {}", name);
+				final BuildProject project = getContext().getProjects().get(name);
+				Phase phase = project.getPhase();
+
+				if (Phase.DeletedRelease.compareTo(phase) > 0) {
+					// Remove the maven temporary install of the new release version
+					Path current = repository;
+					for (String component : project.getGroup().split("\\.")) {
+						current = current.resolve(component);
+					}
+					for (String artifact : HCollection.concatenate(HCollection.asList(name), project.getPom().getModules())) {
+						HFile.delete(current.resolve(artifact).resolve(project.getReleaseProperties().getRelease()));
+					}
+					phase = project.updatePhase(Phase.DeletedRelease);
+				}
 			}
 		} finally {
 			HIO.closeAll(getContext().getProjects().values());
