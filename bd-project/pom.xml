@@ -1,4 +1,5 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.g2forge.bulldozer</groupId>
@@ -44,8 +45,8 @@
 		<connection>scm:git:git://github.com/${bulldozer.organization}/${bulldozer.repository}.git</connection>
 		<developerConnection>scm:git:ssh://github.com:${bulldozer.organization}/${bulldozer.repository}.git</developerConnection>
 		<url>http://github.com/${bulldozer.organization}/${bulldozer.repository}/tree/${project.version}</url>
-	  <tag>HEAD</tag>
-  </scm>
+		<tag>HEAD</tag>
+	</scm>
 
 	<build>
 		<plugins>
