@@ -116,15 +116,14 @@ public class CreatePRs {
 						final Block.BlockBuilder builder = Block.builder().type(Block.Type.Paragraph);
 						final Set<String> dependencies = project.getDependencies().getImmediate().keySet();
 						if (!dependencies.isEmpty()) {
-							builder.content(new Text("Depends on "));
 							final Text comma = new Text(", ");
 							boolean first = true;
 							for (String dependency : dependencies) {
 								final GHPullRequest dependentPR = projectToPullRequest.get(dependency);
 								if (dependentPR == null) continue;
 
+								builder.content(first ? new Text("Depends on ") : comma);
 								if (first) first = false;
-								else builder.content(comma);
 								builder.content(new Text(dependentPR.getHtmlUrl().toString()));
 							}
 						}
