@@ -10,14 +10,14 @@
 	<parent>
 		<groupId>com.g2forge.alexandria</groupId>
 		<artifactId>ax-project</artifactId>
-		<version>0.0.7-SNAPSHOT</version>
+		<version>0.0.7</version>
 		<relativePath>../../alexandria/ax-project/pom.xml</relativePath>
 	</parent>
 
 	<properties>
-		<alexandria.version>0.0.7-SNAPSHOT</alexandria.version>
-		<gearbox.version>0.0.2-SNAPSHOT</gearbox.version>
-		<enigma.version>0.0.4-SNAPSHOT</enigma.version>
+		<alexandria.version>0.0.7</alexandria.version>
+		<gearbox.version>0.0.2</gearbox.version>
+		<enigma.version>0.0.4</enigma.version>
 
 		<bulldozer.organization>g2forge</bulldozer.organization>
 		<bulldozer.name>Bulldozer</bulldozer.name>
