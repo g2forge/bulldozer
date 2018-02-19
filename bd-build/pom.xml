@@ -30,6 +30,7 @@
 			<artifactId>ax-wizard</artifactId>
 			<version>${alexandria.version}</version>
 		</dependency>
+
 		<dependency>
 			<groupId>com.g2forge.gearbox</groupId>
 			<artifactId>gb-functional</artifactId>
@@ -45,6 +46,7 @@
 			<artifactId>gb-github</artifactId>
 			<version>${gearbox.version}</version>
 		</dependency>
+
 		<dependency>
 			<groupId>com.g2forge.enigma</groupId>
 			<artifactId>en-diagram</artifactId>
