@@ -10,14 +10,14 @@ import org.semver.Version;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.function.IFunction1;
 import com.g2forge.alexandria.java.io.RuntimeIOException;
 import com.g2forge.bulldozer.build.input.InputField;
 import com.g2forge.bulldozer.build.input.InputType;
-import com.g2forge.bulldozer.build.json.VersionDeserializer;
-import com.g2forge.bulldozer.build.json.VersionSerializer;
 import com.g2forge.bulldozer.build.model.maven.MavenProject;
+import com.g2forge.bulldozer.build.semver.VersionDeserializer;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -55,7 +55,7 @@ public class BulldozerCreateProject {
 
 	protected final String prefix;
 
-	@JsonSerialize(using = VersionSerializer.class)
+	@JsonSerialize(using = ToStringSerializer.class)
 	@JsonDeserialize(using = VersionDeserializer.class)
 	protected final Version version;
 

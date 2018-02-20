@@ -3,6 +3,9 @@ package com.g2forge.bulldozer.build.maven;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -10,24 +13,25 @@ import lombok.Data;
 @Data
 @Builder
 @AllArgsConstructor
-public class Descriptor {
+@JsonInclude(Include.NON_EMPTY)
+public class Descriptor implements IDescriptor {
 	protected static final Pattern PATTERN = Pattern.compile("([^:]*):([^:]*):([^:]*):([^:]*):([^:]*)");
 
 	public static Descriptor fromString(String string) {
 		final Matcher matcher = PATTERN.matcher(string);
 		if (!matcher.matches()) throw new IllegalArgumentException();
 		final Descriptor.DescriptorBuilder retVal = builder();
-		retVal.group(matcher.group(1));
-		retVal.artifact(matcher.group(2));
+		retVal.groupId(matcher.group(1));
+		retVal.artifactId(matcher.group(2));
 		retVal.packaging(matcher.group(3));
 		retVal.version(matcher.group(4));
 		retVal.scope(matcher.group(5));
 		return retVal.build();
 	}
 
-	protected final String group;
+	protected final String groupId;
 
-	protected final String artifact;
+	protected final String artifactId;
 
 	protected final String packaging;
 
@@ -38,8 +42,8 @@ public class Descriptor {
 	@Override
 	public String toString() {
 		final StringBuilder retVal = new StringBuilder();
-		retVal.append(getGroup());
-		retVal.append(':').append(getArtifact());
+		retVal.append(getGroupId());
+		retVal.append(':').append(getArtifactId());
 		if (getPackaging() != null) retVal.append(':').append(getPackaging());
 		retVal.append(':').append(getVersion());
 		if (getScope() != null) retVal.append(':').append(getScope());
