@@ -11,10 +11,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import org.eclipse.jgit.api.AddCommand;
 import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.Status;
+import org.eclipse.jgit.api.StatusCommand;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.errors.NoWorkTreeException;
+import org.eclipse.jgit.lib.Constants;
 import org.eclipse.mylyn.wikitext.markdown.MarkdownLanguage;
 import org.kohsuke.github.GHCreateRepositoryBuilder;
 import org.kohsuke.github.GHIssueState;
@@ -27,6 +33,7 @@ import org.slf4j.event.Level;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
+import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.function.IFunction1;
 import com.g2forge.alexandria.log.HLog;
 import com.g2forge.alexandria.wizard.CommandLineStringInput;
@@ -43,6 +50,7 @@ import com.g2forge.enigma.document.Text;
 import com.g2forge.enigma.document.convert.WikitextDocumentBuilder;
 import com.g2forge.enigma.document.convert.md.MDRenderer;
 import com.g2forge.gearbox.git.GitConfig;
+import com.g2forge.gearbox.git.GitIgnore;
 import com.g2forge.gearbox.git.HGit;
 
 import lombok.Data;
@@ -55,13 +63,17 @@ import lombok.extern.slf4j.Slf4j;
 public class CreateProject {
 	@RequiredArgsConstructor
 	@Getter
-	public enum StandardIgnores {
+	public enum StandardIgnore {
 		Project("/.project"),
 		Classpath("/.classpath"),
 		Settings("/.settings/"),
 		Target("/target/"),
 		BulldozerTemp("/" + com.g2forge.bulldozer.build.model.BulldozerTemp.BULLDOZER_TEMP),
 		Factorypath("/.factorypath");
+
+		public static GitIgnore createIgnore() {
+			return new GitIgnore(Stream.of(StandardIgnore.values()).map(StandardIgnore::getFilename).collect(Collectors.toList()));
+		}
 
 		protected final String filename;
 	}
@@ -187,24 +199,50 @@ public class CreateProject {
 			try (final BufferedWriter writer = Files.newBufferedWriter(readme)) {
 				writer.write(new MDRenderer().render(output));
 			}
-
-			if (git.status().call().getModified().contains(readme.getFileName().toString())) {
-				git.add().addFilepattern(readme.getFileName().toString()).call();
-				git.commit().setMessage(getIssue() + " Start " + create.getName()).call();
-			}
+			commit(git, getIssue() + " Start " + create.getName(), readme.getFileName().toString());
 		}
 
-		// Create the directory structure & git ignores
-		// TODO: mkdir xe-project
-		// TODO: Create .gitignores
+		{ // Create the directory structure & git ignores
+			log.info("Generating directory structure & git ignores");
+			final String xxProjectName = create.getPrefix() + "-project";
+			final Path xxProjectPath = directory.resolve(xxProjectName);
+			Files.createDirectories(xxProjectPath);
 
-		// Create the POM files
-		// TODO: root
-		// TODO: xx-project
+			// GitIgnore.load(directory);
+			// TODO: Read in the ignore if it exists, add the new entries if they don't exist
+			final GitIgnore ignore = StandardIgnore.createIgnore();
+			ignore.store(directory);
+			ignore.store(xxProjectPath);
+			commit(git, getIssue() + " Create standard ignores", Constants.GITIGNORE_FILENAME, xxProjectName + "/" + Constants.GITIGNORE_FILENAME);
+
+			// Create the POM files
+			// TODO: root
+			// TODO: xx-project
+		}
 
 		// Modify the meta-project pom.xml file
 		// TODO: !!
 
 		// Note that we do not push the branch or open PRs, there is another command for that
+	}
+
+	public static void commit(Git git, String message, String... files) throws NoWorkTreeException, GitAPIException {
+		final StatusCommand status = git.status();
+		for (String file : files) {
+			status.addPath(file);
+		}
+
+		final Status result = status.call();
+		final List<String> collection = HCollection.asList(files);
+		if (!HCollection.intersection(result.getUncommittedChanges(), collection).isEmpty() || !HCollection.intersection(result.getUntracked(), collection).isEmpty()) {
+			final AddCommand add = git.add();
+			for (String file : files) {
+				add.addFilepattern(file);
+			}
+			add.call();
+
+			git.commit().setMessage(message).call();
+			log.info(String.format("Comitting: %1$s", message));
+		}
 	}
 }
