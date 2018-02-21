@@ -87,12 +87,12 @@ public class BulldozerProject implements ICloseable {
 					if (line.contains("- " + publicProject.getGroup())) return true;
 				}
 				return false;
-			}).map(line -> new Tuple2G_I<>(Descriptor.fromString(line.substring(line.indexOf("- ") + 2)), line.startsWith("[INFO] \\- ") || line.startsWith("[INFO] +- "))).filter(t -> !t.get0().getGroup().equals(nameToProject.get(name).getGroup())).collect(Collectors.groupingBy(t -> t.get0().getGroup()));
+			}).map(line -> new Tuple2G_I<>(Descriptor.fromString(line.substring(line.indexOf("- ") + 2)), line.startsWith("[INFO] \\- ") || line.startsWith("[INFO] +- "))).filter(t -> !t.get0().getGroupId().equals(nameToProject.get(name).getGroup())).collect(Collectors.groupingBy(t -> t.get0().getGroupId()));
 			// Extract the per-project version and make sure we only ever depend on one version
 			final BulldozerDependencies.BulldozerDependenciesBuilder builder = BulldozerDependencies.builder();
 			for (List<ITuple2G_<Descriptor, Boolean>> tuples : grouped.values()) {
 				// Aside from versions we only have to look at the first tuple, since they're all the same
-				final String group = tuples.get(0).get0().getGroup();
+				final String group = tuples.get(0).get0().getGroupId();
 
 				final Set<String> versions = tuples.stream().map(ITuple1G_::get0).map(Descriptor::getVersion).collect(Collectors.toSet());
 				if (versions.size() > 1) throw new IllegalArgumentException(String.format("%3$s depends on multiple versions of the project \"%1$s\": %2$s", group, versions, name));
@@ -124,7 +124,7 @@ public class BulldozerProject implements ICloseable {
 		try {
 			return getContext().getXmlMapper().readValue(getDirectory().resolve(IMaven.POM_XML).toFile(), POM.class);
 		} catch (IOException e) {
-			throw new RuntimeIOException(String.format("Failed to read %1$s for %2$s!", IMaven.POM_XML, getName()), e);
+			throw new RuntimeIOException(String.format("Failed to read %1$s for %2$s!", IMaven.POM_XML, getProject().getRelative()), e);
 		}
 	}
 

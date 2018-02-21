@@ -11,7 +11,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import org.eclipse.jgit.api.TransportConfigCallback;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.transport.RefSpec;
@@ -19,8 +18,6 @@ import org.kohsuke.github.GHIssueState;
 import org.kohsuke.github.GHMilestone;
 import org.kohsuke.github.GHPullRequest;
 import org.kohsuke.github.GHRepository;
-import org.kohsuke.github.GitHub;
-import org.kohsuke.github.GitHubBuilder;
 import org.semver.Version;
 import org.slf4j.event.Level;
 
@@ -30,8 +27,6 @@ import com.g2forge.alexandria.data.graph.HGraph;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.log.HLog;
 import com.g2forge.alexandria.wizard.CommandLineStringInput;
-import com.g2forge.alexandria.wizard.PropertyStringInput;
-import com.g2forge.alexandria.wizard.UserPasswordInput;
 import com.g2forge.alexandria.wizard.UserStringInput;
 import com.g2forge.bulldozer.build.github.GitHubRepositoryID;
 import com.g2forge.bulldozer.build.model.BulldozerProject;
@@ -66,25 +61,10 @@ public class CreatePRs {
 		// Fail if any repositories are dirty
 		getContext().failIfDirty();
 
-		// Connect to github
-		final GitHub github;
-		{
-			final String user = new PropertyStringInput("github.user").fallback(new UserPasswordInput("GitHub Username")).get();
-			final String token = new PropertyStringInput("github.token").fallback(new UserPasswordInput("GitHub OAuth Token")).get();
-			github = new GitHubBuilder().withOAuthToken(token, user).build();
-		}
-
 		// Find the projects which have the relevant branch
 		final List<String> projects = getContext().getProjects().values().stream().filter(p -> HGit.isBranch(p.getGit(), getBranch())).map(BulldozerProject::getName).collect(Collectors.toList());
 		// Topologically sort the projects
 		final List<String> order = HGraph.toposort(projects, p -> HCollection.intersection(getContext().getNameToProject().get(p).getDependencies().getTransitive().keySet(), projects), false);
-
-		final TransportConfigCallback transportConfig;
-		{
-			final String key = new PropertyStringInput("ssh.key.file").fallback(new UserPasswordInput("SSH Key File")).get();
-			final String passphrase = new PropertyStringInput("ssh.key.passphrase").fallback(new UserPasswordInput(String.format("SSH Passphrase for %1$s", key))).get();
-			transportConfig = HGit.createTransportConfig(key, passphrase);
-		}
 
 		// In topological order...
 		final Map<String, GHPullRequest> projectToPullRequest = new HashMap<>();
@@ -94,7 +74,7 @@ public class CreatePRs {
 
 			{ // Push the branch
 				log.info(String.format("Pushing %1$s to remote %3$s:%2$s", getBranch(), remote, project.getName()));
-				project.getGit().push().setTransportConfigCallback(transportConfig).setRemote(remote).setRefSpecs(new RefSpec(getBranch() + ":" + getBranch())).call();
+				project.getGit().push().setTransportConfigCallback(getContext().getTransportConfig()).setRemote(remote).setRefSpecs(new RefSpec(getBranch() + ":" + getBranch())).call();
 				HGit.setTracking(project.getGit(), getBranch(), remote, null);
 				log.info(String.format("Successfully pushed %1$s", project.getName()));
 			}
@@ -106,7 +86,7 @@ public class CreatePRs {
 
 				log.info(String.format("Opening pull request for %1$s", project.getName()));
 
-				final GHRepository repository = github.getRepository(project.getGithubMaster().toGitHubName());
+				final GHRepository repository = getContext().getGithub().getRepository(project.getGithubMaster().toGitHubName());
 				final List<GHPullRequest> pullRequests = StreamSupport.stream(repository.queryPullRequests().head(head).base(base).list().spliterator(), false).collect(Collectors.toList());
 				final GHPullRequest pr;
 				if (pullRequests.size() > 1) throw new IllegalStateException(String.format("Found multiple pull requests: %1$s", pullRequests.stream().map(GHPullRequest::getHtmlUrl).map(URL::toString).collect(Collectors.joining(", "))));
@@ -143,8 +123,8 @@ public class CreatePRs {
 					pr.setLabels(base);
 					changed = true;
 				}
-				if (!pr.getAssignees().contains(github.getMyself())) {
-					pr.addAssignees(github.getMyself());
+				if (!pr.getAssignees().contains(getContext().getGithub().getMyself())) {
+					pr.addAssignees(getContext().getGithub().getMyself());
 					changed = true;
 				}
 				if (pr.getMilestone() == null) {

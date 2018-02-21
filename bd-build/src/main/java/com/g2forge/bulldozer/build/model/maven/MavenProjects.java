@@ -31,7 +31,7 @@ public class MavenProjects {
 		try {
 			final POM pom = mapper.readValue(getRootPOM().toFile(), POM.class);
 			final List<MavenProject> retVal = new ArrayList<>();
-			pom.getModules().stream().map(relative -> new MavenProject(Paths.get(relative), MavenProject.Protection.Public)).forEach(retVal::add);
+			pom.getModules().stream().map(module -> new MavenProject(Paths.get(module), MavenProject.Protection.Public)).forEach(retVal::add);
 			for (Profile profile : pom.getProfiles()) {
 				final MavenProject.Protection protection = HEnum.valueOfInsensitive(MavenProject.Protection.class, profile.getId());
 				if (protection == null) continue;
