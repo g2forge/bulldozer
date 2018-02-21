@@ -3,6 +3,7 @@ package com.g2forge.bulldozer.build.maven;
 import java.util.List;
 import java.util.Map;
 
+import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlElementWrapper;
 
@@ -27,6 +28,15 @@ import lombok.Singular;
 @JsonInclude(Include.NON_EMPTY)
 @JacksonXmlRootElement(localName = "project")
 public class POM implements IDescriptor {
+	@XmlAttribute
+	protected final String xmlns = "http://maven.apache.org/POM/4.0.0";
+
+	@XmlAttribute(name = "xmlns:xsi")
+	protected final String xmlns_xsi = "http://www.w3.org/2001/XMLSchema-instance";
+
+	@XmlAttribute(name = "xsi:schemaLocation")
+	protected final String xsi_schemaLocation = "http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd";
+
 	protected final String modelVersion;
 
 	protected final String groupId;

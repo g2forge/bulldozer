@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator;
 import com.fasterxml.jackson.module.jaxb.JaxbAnnotationModule;
+import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.function.IFunction1;
 import com.g2forge.alexandria.java.function.IFunction2;
 import com.g2forge.alexandria.java.io.RuntimeIOException;
@@ -61,6 +62,9 @@ public class Context<P extends BulldozerProject> {
 
 	@Getter(lazy = true)
 	private final Map<String, P> projects = computeProjects();
+	
+	@Getter(lazy = true)
+	private final String rootProject = HCollection.getLast(getProjects().keySet());
 
 	@Getter(lazy = true)
 	private final Map<String, P> nameToProject = getProjects().values().stream().collect(Collectors.toMap(BulldozerProject::getName, IFunction1.identity()));
