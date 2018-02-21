@@ -390,7 +390,7 @@ public class CreateProject {
 		}
 
 		{ // Modify the root project pom.xml file
-			log.info("Creating root POM");
+			log.info("Creating root POM & ignoring the repository");
 			if (!HGit.isBranch(rootGit, branch)) rootGit.checkout().setCreateBranch(true).setName(branch).call();
 
 			try {
@@ -399,7 +399,11 @@ public class CreateProject {
 				throw new RuntimeException(e);
 			}
 
-			commit(rootGit, getIssue() + " Added " + create.getName(), IMaven.POM_XML);
+			final LinkedHashSet<String> ignores = new LinkedHashSet<>(GitIgnore.load(rootDirectory).getLines());
+			ignores.add("/" + repositoryName);
+			new GitIgnore(new ArrayList<>(ignores)).store(rootDirectory);
+
+			commit(rootGit, getIssue() + " Added " + create.getName(), IMaven.POM_XML, Constants.GITIGNORE_FILENAME);
 		}
 
 		// Note that we do not push the branch or open PRs, there is another command for that
