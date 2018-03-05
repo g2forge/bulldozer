@@ -33,7 +33,8 @@ public class BulldozerCreateProject {
 	@RequiredArgsConstructor
 	@Getter
 	public enum License {
-		Apache2("apache-2.0", "The Apache License, Version 2.0");
+		Apache2("apache-2.0", "The Apache License, Version 2.0"),
+		MIT("mit", "The MIT License");
 
 		protected final String github;
 
