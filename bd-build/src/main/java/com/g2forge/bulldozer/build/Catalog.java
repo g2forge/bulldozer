@@ -1,6 +1,5 @@
 package com.g2forge.bulldozer.build;
 
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -17,7 +16,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.eclipse.jgit.api.errors.GitAPIException;
-import org.eclipse.mylyn.wikitext.markdown.MarkdownLanguage;
 import org.slf4j.event.Level;
 
 import com.fasterxml.jackson.core.JsonParseException;
@@ -43,7 +41,7 @@ import com.g2forge.enigma.document.Section.SectionBuilder;
 import com.g2forge.enigma.document.Span;
 import com.g2forge.enigma.document.Span.SpanBuilder;
 import com.g2forge.enigma.document.Text;
-import com.g2forge.enigma.document.convert.WikitextDocumentBuilder;
+import com.g2forge.enigma.document.convert.WikitextParser;
 import com.g2forge.enigma.document.convert.md.MDRenderer;
 
 import lombok.Data;
@@ -136,11 +134,9 @@ public class Catalog {
 		}
 
 		{ // Rewrite the README.md
-			final Block input;
 			final Path readme = getContext().getRoot().resolve("README.md");
-			try (final BufferedReader reader = Files.newBufferedReader(readme)) {
-				input = WikitextDocumentBuilder.parse(new MarkdownLanguage(), reader);
-			}
+			final Block input = WikitextParser.getMarkdown().parse(readme);
+
 			final List<IBlock> contents = new ArrayList<>(input.getContents());
 			contents.set(1, Section.builder().title(new Text("Projects")).body(docBuilder.build()).build());
 			final Block output = Block.builder().type(Block.Type.Document).contents(contents).build();

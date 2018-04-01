@@ -41,7 +41,6 @@ import org.eclipse.jgit.api.StatusCommand;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.errors.NoWorkTreeException;
 import org.eclipse.jgit.lib.Constants;
-import org.eclipse.mylyn.wikitext.markdown.MarkdownLanguage;
 import org.kohsuke.github.GHCreateRepositoryBuilder;
 import org.kohsuke.github.GHIssueState;
 import org.kohsuke.github.GHLabel;
@@ -86,7 +85,7 @@ import com.g2forge.enigma.document.Block;
 import com.g2forge.enigma.document.IBlock;
 import com.g2forge.enigma.document.Section;
 import com.g2forge.enigma.document.Text;
-import com.g2forge.enigma.document.convert.WikitextDocumentBuilder;
+import com.g2forge.enigma.document.convert.WikitextParser;
 import com.g2forge.enigma.document.convert.md.MDRenderer;
 import com.g2forge.gearbox.git.GitConfig;
 import com.g2forge.gearbox.git.GitIgnore;
@@ -297,11 +296,9 @@ public class CreateProject {
 
 		{ // Rewrite the README.md
 			log.info("Generating README");
-			final Block input;
 			final Path readme = directory.resolve("README.md");
-			try (final BufferedReader reader = Files.newBufferedReader(readme)) {
-				input = WikitextDocumentBuilder.parse(new MarkdownLanguage(), reader);
-			}
+			final Block input = WikitextParser.getMarkdown().parse(readme);
+
 			final List<IBlock> contents = new ArrayList<>(input.getContents());
 			contents.set(0, Section.builder().title(new Text(create.getName())).body(new Text(create.getDescription())).build());
 			final Block output = Block.builder().type(Block.Type.Document).contents(contents).build();
