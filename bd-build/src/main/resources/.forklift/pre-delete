@@ -1,0 +1,13 @@
+#!/bin/bash
+set -eu -o pipefail
+
+if [ -e "${FLBIN_DIR}/bulldozer" ]; then
+	if grep -qF "VERSION=${VERSION}" ${FLBIN_DIR}/bulldozer; then
+		echo "Uninstalling bulldozer"
+		rm ${FLBIN_DIR}/bulldozer
+	else
+		echo "Leaving other version of bulldozer"
+	fi
+else
+	echo "Never installed bulldozer"
+fi

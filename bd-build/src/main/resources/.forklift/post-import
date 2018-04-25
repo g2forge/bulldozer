@@ -1,0 +1,12 @@
+#!/bin/bash
+set -eu -o pipefail
+
+echo "Installing bulldozer"
+COMMAND=$(${FORKLIFT} command ${WAREHOUSE} ${PALLET} ${VERSION})
+mkdir -p ${FLBIN_DIR}
+cat > ${FLBIN_DIR}/bulldozer <<EOF
+#!/bin/bash
+VERSION=${VERSION}
+${COMMAND} \${@}
+EOF
+chmod +x ${FLBIN_DIR}/bulldozer

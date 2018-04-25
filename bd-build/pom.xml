@@ -14,6 +14,22 @@
 	<name>Bulldozer Build</name>
 	<description>Tools for the development of multi-repository meta-projects like g2forge, including build, release, catalog, version management and even creating PRs.</description>
 
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<configuration>
+					<archive>
+						<manifest>
+							<mainClass>com.g2forge.bulldozer.build.BulldozerBuild</mainClass>
+						</manifest>
+					</archive>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
 	<dependencies>
 		<dependency>
 			<groupId>com.g2forge.alexandria</groupId>
