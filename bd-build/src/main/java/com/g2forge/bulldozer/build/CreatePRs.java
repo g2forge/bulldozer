@@ -1,6 +1,5 @@
 package com.g2forge.bulldozer.build;
 
-import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.HashMap;
@@ -11,7 +10,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.transport.RefSpec;
 import org.kohsuke.github.GHIssueState;
@@ -21,8 +19,7 @@ import org.kohsuke.github.GHRepository;
 import org.semver.Version;
 import org.slf4j.event.Level;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
+import com.g2forge.alexandria.command.IConstructorCommand;
 import com.g2forge.alexandria.data.graph.HGraph;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.log.HLog;
@@ -42,12 +39,13 @@ import lombok.extern.slf4j.Slf4j;
 
 @Data
 @Slf4j
-public class CreatePRs {
-	public static void main(String[] args) throws JsonParseException, JsonMappingException, IOException, GitAPIException {
-		final String branch = new CommandLineStringInput(args, 1).fallback(new UserStringInput("Branch", true)).get();
-		final String title = new CommandLineStringInput(args, 2).fallback(new UserStringInput("Title", true)).get();
-		final CreatePRs createPRs = new CreatePRs(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(args[0])), branch, title);
-		createPRs.createPRs();
+public class CreatePRs implements IConstructorCommand {
+	public static void main(String[] args) throws Throwable {
+		IConstructorCommand.main(args, a -> {
+			final String branch = new CommandLineStringInput(a, 1).fallback(new UserStringInput("Branch", true)).get();
+			final String title = new CommandLineStringInput(a, 2).fallback(new UserStringInput("Title", true)).get();
+			return new CreatePRs(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(a[0])), branch, title);
+		});
 	}
 
 	protected final Context<BulldozerProject> context;
@@ -56,36 +54,37 @@ public class CreatePRs {
 
 	protected final String title;
 
-	public void createPRs() throws GitAPIException, IOException {
+	@Override
+	public int invoke() throws Throwable {
 		HLog.getLogControl().setLogLevel(Level.INFO);
 		// Fail if any repositories are dirty
 		getContext().failIfDirty();
-
+		
 		// Find the projects which have the relevant branch
 		final List<String> projects = getContext().getProjects().values().stream().filter(p -> HGit.isBranch(p.getGit(), getBranch())).map(BulldozerProject::getName).collect(Collectors.toList());
 		// Topologically sort the projects
 		final List<String> order = HGraph.toposort(projects, p -> HCollection.intersection(getContext().getNameToProject().get(p).getDependencies().getTransitive().keySet(), projects), false);
-
+		
 		// In topological order...
 		final Map<String, GHPullRequest> projectToPullRequest = new HashMap<>();
 		for (String name : order) {
 			final BulldozerProject project = getContext().getProjects().get(name);
 			final String remote = HGit.getMyRemote(project.getGit());
-
+		
 			{ // Push the branch
 				log.info(String.format("Pushing %1$s to remote %3$s:%2$s", getBranch(), remote, project.getName()));
 				project.getGit().push().setTransportConfigCallback(getContext().getTransportConfig()).setRemote(remote).setRefSpecs(new RefSpec(getBranch() + ":" + getBranch())).call();
 				HGit.setTracking(project.getGit(), getBranch(), remote, null);
 				log.info(String.format("Successfully pushed %1$s", project.getName()));
 			}
-
+		
 			{ // Open the PR
 				final GitHubRepositoryID fork = GitHubRepositoryID.fromURL(new GitConfig(project.getGit()).getRemote(remote).getURL());
 				final String base = Constants.MASTER;
 				final String head = String.format("%1$s:%2$s", fork.getOrganization(), getBranch());
-
+		
 				log.info(String.format("Opening pull request for %1$s", project.getName()));
-
+		
 				final GHRepository repository = getContext().getGithub().getRepository(project.getGithubMaster().toGitHubName());
 				final List<GHPullRequest> pullRequests = StreamSupport.stream(repository.queryPullRequests().head(head).base(base).list().spliterator(), false).collect(Collectors.toList());
 				final GHPullRequest pr;
@@ -101,7 +100,7 @@ public class CreatePRs {
 							for (String dependency : dependencies) {
 								final GHPullRequest dependentPR = projectToPullRequest.get(dependency);
 								if (dependentPR == null) continue;
-
+		
 								builder.content(first ? new Text("Depends on ") : comma);
 								if (first) first = false;
 								builder.content(new Text(dependentPR.getHtmlUrl().toString()));
@@ -109,7 +108,7 @@ public class CreatePRs {
 						}
 						body = new MDRenderer().render(builder.build());
 					}
-
+		
 					pr = repository.createPullRequest(getTitle(), head, base, body);
 					log.info(String.format("Opened %1$s", pr.getHtmlUrl()));
 				} else {
@@ -117,7 +116,7 @@ public class CreatePRs {
 					log.info(String.format("Found %1$s", pr.getHtmlUrl()));
 				}
 				projectToPullRequest.put(name, pr);
-
+		
 				boolean changed = false;
 				if (pr.getLabels().isEmpty()) {
 					pr.setLabels(base);
@@ -148,5 +147,6 @@ public class CreatePRs {
 				if (changed) log.info("Set labels, assignee & milestone");
 			}
 		}
+		return SUCCESS;
 	}
 }

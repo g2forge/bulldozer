@@ -56,8 +56,7 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
+import com.g2forge.alexandria.command.IConstructorCommand;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.function.IFunction1;
 import com.g2forge.alexandria.java.platform.PathSpec;
@@ -98,7 +97,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Data
 @Slf4j
-public class CreateProject {
+public class CreateProject implements IConstructorCommand {
 	@RequiredArgsConstructor
 	@Getter
 	public enum StandardIgnore {
@@ -154,10 +153,11 @@ public class CreateProject {
 		}
 	}
 
-	public static void main(String[] args) throws JsonParseException, JsonMappingException, IOException, GitAPIException, XPathExpressionException, SAXException, ParserConfigurationException, TransformerFactoryConfigurationError, TransformerException {
-		final String issue = new CommandLineStringInput(args, 1).fallback(new UserStringInput("Issue", true)).get();
-		final CreateProject create = new CreateProject(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(args[0])), issue);
-		create.create();
+	public static void main(String[] args) throws Throwable {
+		IConstructorCommand.main(args, a -> {
+			final String issue = new CommandLineStringInput(a, 1).fallback(new UserStringInput("Issue", true)).get();
+			return new CreateProject(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(a[0])), issue);
+		});
 	}
 
 	public static void updateMultiModulePOM(Path path, MavenProject.Protection protection, String name) throws SAXException, IOException, ParserConfigurationException, XPathExpressionException, TransformerFactoryConfigurationError, TransformerException {
@@ -203,7 +203,8 @@ public class CreateProject {
 
 	protected final String issue;
 
-	public void create() throws IOException, GitAPIException {
+	@Override
+	public int invoke() throws Throwable {
 		HLog.getLogControl().setLogLevel(Level.INFO);
 		final BulldozerCreateProject create = new InputLoader().load(BulldozerCreateProject.createInputType(getContext()));
 
@@ -405,5 +406,6 @@ public class CreateProject {
 
 		// Note that we do not push the branch or open PRs, there is another command for that
 		log.info("Success!");
+		return SUCCESS;
 	}
 }

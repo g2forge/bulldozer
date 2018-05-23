@@ -1,21 +1,16 @@
 package com.g2forge.bulldozer.build;
 
-import java.io.IOException;
 import java.util.Arrays;
 
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactoryConfigurationError;
-import javax.xml.xpath.XPathExpressionException;
+import com.g2forge.alexandria.command.IArgsCommand;
 
-import org.eclipse.jgit.api.errors.GitAPIException;
-import org.xml.sax.SAXException;
+public class BulldozerBuild implements IArgsCommand {
+	public static void main(String[] args) throws Throwable {
+		IArgsCommand.main(args, BulldozerBuild::new);
+	}
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-
-public class BulldozerBuild {
-	public static void main(String[] args) throws JsonParseException, JsonMappingException, IOException, GitAPIException, XPathExpressionException, SAXException, ParserConfigurationException, TransformerFactoryConfigurationError, TransformerException {
+	@Override
+	public int invoke(String... args) throws Throwable {
 		switch (args[0].toLowerCase()) {
 			case "catalog":
 				Catalog.main(Arrays.copyOfRange(args, 1, args.length));
@@ -31,7 +26,8 @@ public class BulldozerBuild {
 				break;
 			default:
 				System.err.println("Unrecognized command \"" + args[0] + "\"!");
-				System.exit(1);
+				return FAIL;
 		}
+		return SUCCESS;
 	}
 }

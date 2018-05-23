@@ -24,8 +24,7 @@ import org.semver.Version;
 import org.semver.Version.Element;
 import org.slf4j.event.Level;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
+import com.g2forge.alexandria.command.IConstructorCommand;
 import com.g2forge.alexandria.data.graph.HGraph;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.fluent.optional.NullableOptional;
@@ -48,7 +47,16 @@ import lombok.extern.slf4j.Slf4j;
 
 @Data
 @Slf4j
-public class Release {
+public class Release implements IConstructorCommand {
+	public enum Phase {
+		Initial,
+		Prepared,
+		InstalledRelease,
+		Released,
+		InstalledDevelopment,
+		DeletedRelease,
+	}
+
 	public static class ReleaseProject extends BulldozerProject {
 		@Getter(lazy = true)
 		private final ReleaseProperties releaseProperties = computeReleaseProperties();
@@ -112,15 +120,6 @@ public class Release {
 		}
 	}
 
-	public enum Phase {
-		Initial,
-		Prepared,
-		InstalledRelease,
-		Released,
-		InstalledDevelopment,
-		DeletedRelease,
-	}
-
 	@Data
 	@Builder
 	@AllArgsConstructor
@@ -145,9 +144,8 @@ public class Release {
 
 	protected static final List<String> PROFILES_TO_UPDATE = Stream.of(MavenProject.Protection.values()).filter(p -> !MavenProject.Protection.Public.equals(p)).map(p -> p.name().toLowerCase()).collect(Collectors.toList());
 
-	public static void main(String[] args) throws JsonParseException, JsonMappingException, IOException, GitAPIException {
-		final Release release = new Release(new Context<ReleaseProject>(ReleaseProject::new, Paths.get(args[0])), args[1], HCollection.asList(Arrays.copyOfRange(args, 2, args.length)));
-		release.release();
+	public static void main(String[] args) throws Throwable {
+		IConstructorCommand.main(args, a -> new Release(new Context<ReleaseProject>(ReleaseProject::new, Paths.get(a[0])), a[1], HCollection.asList(Arrays.copyOfRange(a, 2, a.length))));
 	}
 
 	protected final Context<ReleaseProject> context;
@@ -158,25 +156,40 @@ public class Release {
 
 	protected final boolean allowDirty = new PropertyStringInput("bulldozer.allowdirty").map(Boolean::valueOf).fallback(NullableOptional.of(false)).get();
 
-	public void release() throws IOException, GitAPIException {
+	protected void commitUpstreamReversion(final Git git) throws IOException, GitAPIException {
+		final Status status = git.status().call();
+		if (!status.isClean() && !status.getUncommittedChanges().isEmpty()) {
+			final AddCommand add = git.add();
+			status.getUncommittedChanges().forEach(add::addFilepattern);
+			add.call();
+			git.commit().setMessage(getIssue() + " Updated upstream project versions").call();
+		}
+	}
+
+	protected String getBranch() {
+		return getIssue() + "-Release";
+	}
+
+	@Override
+	public int invoke() throws Throwable {
 		HLog.getLogControl().setLogLevel(Level.INFO);
 		log.info("Releasing: {}", getTargets());
-
+		
 		// Load information about all the projects
 		log.info("Loading project information");
 		try {
 			// Print a list of the public projects
 			final List<ReleaseProject> publicProjects = getContext().getProjects().values().stream().filter(project -> MavenProject.Protection.Public.equals(project.getProject().getProtection())).collect(Collectors.toList());
 			log.info("Public projects: {}", publicProjects.stream().map(BulldozerProject::getName).collect(Collectors.joining(", ")));
-
+		
 			// Check for uncommitted changes in any project, and fail
 			if (!allowDirty) getContext().failIfDirty();
-
+		
 			// Compute the order in which to release the public projects
 			log.info("Planning release order");
 			final List<String> order = HGraph.toposort(targets, p -> getContext().getNameToProject().get(p).getDependencies().getTransitive().keySet(), false);
 			log.info("Release order: {}", order);
-
+		
 			if (!allowDirty) { // Make sure none of the tags already exist
 				final List<ReleaseProject> tagged = order.stream().map(getContext().getProjects()::get).filter(project -> {
 					final ReleaseProperties releaseProperties = project.predictReleaseProperties();
@@ -188,33 +201,33 @@ public class Release {
 				}).collect(Collectors.toList());
 				if (!tagged.isEmpty()) throw new IllegalStateException(String.format("One or more projects were already tagged (%1$s), please remove those tags and try again!", tagged.stream().map(BulldozerProject::getName).collect(Collectors.joining(", "))));
 			}
-
+		
 			// Prepare all the releases
 			for (String name : order) {
 				log.info("Preparing {}", name);
 				final ReleaseProject project = getContext().getProjects().get(name);
 				final Git git = project.getGit();
-
+		
 				Phase phase = project.getPhase();
 				if (Phase.Prepared.compareTo(phase) > 0) {
 					// Create and switch to the release branch if needed
 					switchToBranch(git);
 					// Commit any changes from a past prepare
 					commitUpstreamReversion(git);
-
+		
 					{ // Prepare the project (stream stdio to the console)
 						final ReleaseProperties releaseProperties = project.predictReleaseProperties();
 						getContext().getMaven().releasePrepare(project.getDirectory(), releaseProperties.getTag(), releaseProperties.getRelease(), releaseProperties.getDevelopment());
 					}
 					phase = project.updatePhase(Phase.Prepared);
 				}
-
+		
 				if (Phase.InstalledRelease.compareTo(phase) > 0) {
 					// Check out the recent tag using jgit
 					project.checkoutTag(project.getReleaseProperties().getTag());
 					// Maven install (stream stdio to the console) the newly created release version
 					getContext().getMaven().install(project.getDirectory());
-
+		
 					// Update everyone who consumes this project (including the private consumers!) to the new version (and commit)
 					log.info("Updating downstream {}", name);
 					for (BulldozerProject downstream : getContext().getProjects().values()) {
@@ -224,40 +237,40 @@ public class Release {
 						switchToBranch(downstream.getGit());
 						getContext().getMaven().updateVersions(downstream.getDirectory(), false, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
 					}
-
+		
 					phase = project.updatePhase(Phase.InstalledRelease);
 				}
 			}
-
+		
 			// Perform the releases
 			for (String name : order) {
 				log.info("Releasing {}", name);
 				final ReleaseProject project = getContext().getProjects().get(name);
-
+		
 				if (Phase.Released.compareTo(project.getPhase()) > 0) {
 					final Git git = project.getGit();
-
+		
 					// Check out the branch head
 					git.checkout().setCreateBranch(false).setName(getBranch()).call();
 					// Perform the release
 					getContext().getMaven().releasePerform(project.getDirectory());
-
+		
 					project.updatePhase(Phase.Released);
 				}
 			}
-
+		
 			// Restarting development
 			for (String name : order) {
 				log.info("Restarting development of {}", name);
 				final ReleaseProject project = getContext().getProjects().get(name);
 				Phase phase = project.getPhase();
-
+		
 				if (Phase.InstalledDevelopment.compareTo(phase) > 0) {
 					// Check out the branch head
 					project.getGit().checkout().setCreateBranch(false).setName(getBranch()).call();
 					// Maven install (stream stdio to the console) the new development versions
 					getContext().getMaven().install(project.getDirectory());
-
+		
 					log.info("Updating downstream {}", name);
 					for (BulldozerProject downstream : getContext().getProjects().values()) {
 						// Skip ourselves & projects that don't depend on us
@@ -266,11 +279,11 @@ public class Release {
 						switchToBranch(downstream.getGit());
 						getContext().getMaven().updateVersions(downstream.getDirectory(), true, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
 					}
-
+		
 					phase = project.updatePhase(Phase.InstalledDevelopment);
 				}
 			}
-
+		
 			// Commit anything dirty, since those are the things with version updates
 			log.info("Committing downstream projects");
 			for (BulldozerProject project : getContext().getProjects().values()) {
@@ -278,7 +291,7 @@ public class Release {
 				switchToBranch(project.getGit());
 				commitUpstreamReversion(project.getGit());
 			}
-
+		
 			// Find the local maven repository
 			final Path repository = Paths.get(getContext().getMaven().evaluate(getContext().getRoot(), "settings.localRepository"));
 			// Cleanup
@@ -286,7 +299,7 @@ public class Release {
 				log.info("Cleaning up temporary release install of {}", name);
 				final ReleaseProject project = getContext().getProjects().get(name);
 				Phase phase = project.getPhase();
-
+		
 				if (Phase.DeletedRelease.compareTo(phase) > 0) {
 					final String releaseVersion = Version.parse(project.getVersion()).toReleaseVersion().toString();
 					// Remove the maven temporary install of the new release version
@@ -303,20 +316,7 @@ public class Release {
 		} finally {
 			HIO.closeAll(getContext().getProjects().values());
 		}
-	}
-
-	protected void commitUpstreamReversion(final Git git) throws IOException, GitAPIException {
-		final Status status = git.status().call();
-		if (!status.isClean() && !status.getUncommittedChanges().isEmpty()) {
-			final AddCommand add = git.add();
-			status.getUncommittedChanges().forEach(add::addFilepattern);
-			add.call();
-			git.commit().setMessage(getIssue() + " Updated upstream project versions").call();
-		}
-	}
-
-	protected String getBranch() {
-		return getIssue() + "-Release";
+		return SUCCESS;
 	}
 
 	protected void switchToBranch(final Git git) throws IOException, GitAPIException {
