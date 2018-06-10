@@ -41,10 +41,10 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class CreatePRs implements IConstructorCommand {
 	public static void main(String[] args) throws Throwable {
-		IConstructorCommand.main(args, a -> {
-			final String branch = new CommandLineStringInput(a, 1).fallback(new UserStringInput("Branch", true)).get();
-			final String title = new CommandLineStringInput(a, 2).fallback(new UserStringInput("Title", true)).get();
-			return new CreatePRs(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(a[0])), branch, title);
+		IConstructorCommand.main(args, invocation -> {
+			final String branch = new CommandLineStringInput(invocation, 1).fallback(new UserStringInput("Branch", true)).get();
+			final String title = new CommandLineStringInput(invocation, 2).fallback(new UserStringInput("Title", true)).get();
+			return new CreatePRs(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(invocation.getArguments().get(0))), branch, title);
 		});
 	}
 

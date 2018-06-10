@@ -47,7 +47,7 @@ import net.sourceforge.plantuml.FileFormat;
 @Data
 public class Catalog implements IConstructorCommand {
 	public static void main(String[] args) throws Throwable {
-		IConstructorCommand.main(args, a -> new Catalog(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(a[0]))));
+		IConstructorCommand.main(args, invocation -> new Catalog(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(invocation.getArguments().get(0)))));
 	}
 
 	protected final Context<BulldozerProject> context;

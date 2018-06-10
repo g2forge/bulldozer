@@ -154,9 +154,9 @@ public class CreateProject implements IConstructorCommand {
 	}
 
 	public static void main(String[] args) throws Throwable {
-		IConstructorCommand.main(args, a -> {
-			final String issue = new CommandLineStringInput(a, 1).fallback(new UserStringInput("Issue", true)).get();
-			return new CreateProject(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(a[0])), issue);
+		IConstructorCommand.main(args, invocation -> {
+			final String issue = new CommandLineStringInput(invocation, 1).fallback(new UserStringInput("Issue", true)).get();
+			return new CreateProject(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(invocation.getArguments().get(0))), issue);
 		});
 	}
 
