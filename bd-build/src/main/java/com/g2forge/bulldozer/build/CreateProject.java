@@ -57,6 +57,8 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 import com.g2forge.alexandria.command.IConstructorCommand;
+import com.g2forge.alexandria.command.IStandardCommand;
+import com.g2forge.alexandria.command.IStructuredCommand;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.function.IFunction1;
 import com.g2forge.alexandria.java.platform.PathSpec;
@@ -133,6 +135,11 @@ public class CreateProject implements IConstructorCommand {
 		protected final String color;
 	}
 
+	public static final IStandardCommand COMMAND_FACTORY = IStandardCommand.of(invocation -> {
+		final String issue = new CommandLineStringInput(invocation, 1).fallback(new UserStringInput("Issue", true)).get();
+		return new CreateProject(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(invocation.getArguments().get(0))), issue);
+	});
+
 	public static void commit(Git git, String message, String... files) throws NoWorkTreeException, GitAPIException {
 		final StatusCommand status = git.status();
 		for (String file : files) {
@@ -154,10 +161,7 @@ public class CreateProject implements IConstructorCommand {
 	}
 
 	public static void main(String[] args) throws Throwable {
-		IConstructorCommand.main(args, invocation -> {
-			final String issue = new CommandLineStringInput(invocation, 1).fallback(new UserStringInput("Issue", true)).get();
-			return new CreateProject(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(invocation.getArguments().get(0))), issue);
-		});
+		IStructuredCommand.main(args, COMMAND_FACTORY);
 	}
 
 	public static void updateMultiModulePOM(Path path, MavenProject.Protection protection, String name) throws SAXException, IOException, ParserConfigurationException, XPathExpressionException, TransformerFactoryConfigurationError, TransformerException {

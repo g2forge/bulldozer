@@ -1,33 +1,16 @@
 package com.g2forge.bulldozer.build;
 
-import java.util.Arrays;
+import com.g2forge.alexandria.command.IStandardCommand;
+import com.g2forge.alexandria.command.IStructuredCommand;
 
-import com.g2forge.alexandria.command.IArgsCommand;
-
-public class BulldozerBuild implements IArgsCommand {
+public class BulldozerBuild implements IStructuredCommand {
 	public static void main(String[] args) throws Throwable {
-		IArgsCommand.main(args, BulldozerBuild::new);
-	}
-
-	@Override
-	public int invoke(String... args) throws Throwable {
-		switch (args[0].toLowerCase()) {
-			case "catalog":
-				Catalog.main(Arrays.copyOfRange(args, 1, args.length));
-				break;
-			case "create-project":
-				CreateProject.main(Arrays.copyOfRange(args, 1, args.length));
-				break;
-			case "create-prs":
-				CreatePRs.main(Arrays.copyOfRange(args, 1, args.length));
-				break;
-			case "release":
-				Release.main(Arrays.copyOfRange(args, 1, args.length));
-				break;
-			default:
-				System.err.println("Unrecognized command \"" + args[0] + "\"!");
-				return FAIL;
-		}
-		return SUCCESS;
+		final IStructuredCommand.SubCommandBuilder builder = new IStructuredCommand.SubCommandBuilder();
+		builder.add(Catalog.COMMAND_FACTORY, "catalog");
+		builder.add(CreateProject.COMMAND_FACTORY, "create-project");
+		builder.add(CreatePRs.COMMAND_FACTORY, "create-prs");
+		builder.add(Release.COMMAND_FACTORY, "release");
+		final IStandardCommand command = builder.build();
+		IStructuredCommand.main(args, command);
 	}
 }

@@ -20,6 +20,8 @@ import org.semver.Version;
 import org.slf4j.event.Level;
 
 import com.g2forge.alexandria.command.IConstructorCommand;
+import com.g2forge.alexandria.command.IStandardCommand;
+import com.g2forge.alexandria.command.IStructuredCommand;
 import com.g2forge.alexandria.data.graph.HGraph;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.log.HLog;
@@ -40,12 +42,14 @@ import lombok.extern.slf4j.Slf4j;
 @Data
 @Slf4j
 public class CreatePRs implements IConstructorCommand {
+	public static final IStandardCommand COMMAND_FACTORY = IStandardCommand.of(invocation -> {
+		final String branch = new CommandLineStringInput(invocation, 1).fallback(new UserStringInput("Branch", true)).get();
+		final String title = new CommandLineStringInput(invocation, 2).fallback(new UserStringInput("Title", true)).get();
+		return new CreatePRs(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(invocation.getArguments().get(0))), branch, title);
+	});
+
 	public static void main(String[] args) throws Throwable {
-		IConstructorCommand.main(args, invocation -> {
-			final String branch = new CommandLineStringInput(invocation, 1).fallback(new UserStringInput("Branch", true)).get();
-			final String title = new CommandLineStringInput(invocation, 2).fallback(new UserStringInput("Title", true)).get();
-			return new CreatePRs(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(invocation.getArguments().get(0))), branch, title);
-		});
+		IStructuredCommand.main(args, COMMAND_FACTORY);
 	}
 
 	protected final Context<BulldozerProject> context;
@@ -59,32 +63,32 @@ public class CreatePRs implements IConstructorCommand {
 		HLog.getLogControl().setLogLevel(Level.INFO);
 		// Fail if any repositories are dirty
 		getContext().failIfDirty();
-		
+
 		// Find the projects which have the relevant branch
 		final List<String> projects = getContext().getProjects().values().stream().filter(p -> HGit.isBranch(p.getGit(), getBranch())).map(BulldozerProject::getName).collect(Collectors.toList());
 		// Topologically sort the projects
 		final List<String> order = HGraph.toposort(projects, p -> HCollection.intersection(getContext().getNameToProject().get(p).getDependencies().getTransitive().keySet(), projects), false);
-		
+
 		// In topological order...
 		final Map<String, GHPullRequest> projectToPullRequest = new HashMap<>();
 		for (String name : order) {
 			final BulldozerProject project = getContext().getProjects().get(name);
 			final String remote = HGit.getMyRemote(project.getGit());
-		
+
 			{ // Push the branch
 				log.info(String.format("Pushing %1$s to remote %3$s:%2$s", getBranch(), remote, project.getName()));
 				project.getGit().push().setTransportConfigCallback(getContext().getTransportConfig()).setRemote(remote).setRefSpecs(new RefSpec(getBranch() + ":" + getBranch())).call();
 				HGit.setTracking(project.getGit(), getBranch(), remote, null);
 				log.info(String.format("Successfully pushed %1$s", project.getName()));
 			}
-		
+
 			{ // Open the PR
 				final GitHubRepositoryID fork = GitHubRepositoryID.fromURL(new GitConfig(project.getGit()).getRemote(remote).getURL());
 				final String base = Constants.MASTER;
 				final String head = String.format("%1$s:%2$s", fork.getOrganization(), getBranch());
-		
+
 				log.info(String.format("Opening pull request for %1$s", project.getName()));
-		
+
 				final GHRepository repository = getContext().getGithub().getRepository(project.getGithubMaster().toGitHubName());
 				final List<GHPullRequest> pullRequests = StreamSupport.stream(repository.queryPullRequests().head(head).base(base).list().spliterator(), false).collect(Collectors.toList());
 				final GHPullRequest pr;
@@ -100,7 +104,7 @@ public class CreatePRs implements IConstructorCommand {
 							for (String dependency : dependencies) {
 								final GHPullRequest dependentPR = projectToPullRequest.get(dependency);
 								if (dependentPR == null) continue;
-		
+
 								builder.content(first ? new Text("Depends on ") : comma);
 								if (first) first = false;
 								builder.content(new Text(dependentPR.getHtmlUrl().toString()));
@@ -108,7 +112,7 @@ public class CreatePRs implements IConstructorCommand {
 						}
 						body = new MDRenderer().render(builder.build());
 					}
-		
+
 					pr = repository.createPullRequest(getTitle(), head, base, body);
 					log.info(String.format("Opened %1$s", pr.getHtmlUrl()));
 				} else {
@@ -116,7 +120,7 @@ public class CreatePRs implements IConstructorCommand {
 					log.info(String.format("Found %1$s", pr.getHtmlUrl()));
 				}
 				projectToPullRequest.put(name, pr);
-		
+
 				boolean changed = false;
 				if (pr.getLabels().isEmpty()) {
 					pr.setLabels(base);

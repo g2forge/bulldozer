@@ -17,6 +17,8 @@ import java.util.stream.Collectors;
 import org.slf4j.event.Level;
 
 import com.g2forge.alexandria.command.IConstructorCommand;
+import com.g2forge.alexandria.command.IStandardCommand;
+import com.g2forge.alexandria.command.IStructuredCommand;
 import com.g2forge.alexandria.log.HLog;
 import com.g2forge.bulldozer.build.model.BulldozerProject;
 import com.g2forge.bulldozer.build.model.Context;
@@ -46,8 +48,10 @@ import net.sourceforge.plantuml.FileFormat;
 
 @Data
 public class Catalog implements IConstructorCommand {
+	public static final IStandardCommand COMMAND_FACTORY = IStandardCommand.of(invocation -> new Catalog(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(invocation.getArguments().get(0)))));
+
 	public static void main(String[] args) throws Throwable {
-		IConstructorCommand.main(args, invocation -> new Catalog(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(invocation.getArguments().get(0)))));
+		IStructuredCommand.main(args, COMMAND_FACTORY);
 	}
 
 	protected final Context<BulldozerProject> context;

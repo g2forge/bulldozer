@@ -5,7 +5,6 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.stream.Collectors;
@@ -25,6 +24,8 @@ import org.semver.Version.Element;
 import org.slf4j.event.Level;
 
 import com.g2forge.alexandria.command.IConstructorCommand;
+import com.g2forge.alexandria.command.IStandardCommand;
+import com.g2forge.alexandria.command.IStructuredCommand;
 import com.g2forge.alexandria.data.graph.HGraph;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.fluent.optional.NullableOptional;
@@ -144,11 +145,13 @@ public class Release implements IConstructorCommand {
 
 	protected static final List<String> PROFILES_TO_UPDATE = Stream.of(MavenProject.Protection.values()).filter(p -> !MavenProject.Protection.Public.equals(p)).map(p -> p.name().toLowerCase()).collect(Collectors.toList());
 
+	public static final IStandardCommand COMMAND_FACTORY = IStandardCommand.of(invocation -> {
+		final List<String> arguments = invocation.getArguments();
+		return new Release(new Context<ReleaseProject>(ReleaseProject::new, Paths.get(arguments.get(0))), arguments.get(1), arguments.subList(2, arguments.size()));
+	});
+
 	public static void main(String[] args) throws Throwable {
-		IConstructorCommand.main(args, invocation -> {
-			final List<String> arguments = invocation.getArguments();
-			return new Release(new Context<ReleaseProject>(ReleaseProject::new, Paths.get(arguments.get(0))), arguments.get(1), arguments.subList(2, arguments.size()));
-		});
+		IStructuredCommand.main(args, COMMAND_FACTORY);
 	}
 
 	protected final Context<ReleaseProject> context;
