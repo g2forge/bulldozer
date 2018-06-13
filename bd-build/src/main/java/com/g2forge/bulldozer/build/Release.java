@@ -25,7 +25,7 @@ import org.slf4j.event.Level;
 
 import com.g2forge.alexandria.command.IConstructorCommand;
 import com.g2forge.alexandria.command.IStandardCommand;
-import com.g2forge.alexandria.command.IStructuredCommand;
+import com.g2forge.alexandria.command.exit.IExit;
 import com.g2forge.alexandria.data.graph.HGraph;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.fluent.optional.NullableOptional;
@@ -151,7 +151,7 @@ public class Release implements IConstructorCommand {
 	});
 
 	public static void main(String[] args) throws Throwable {
-		IStructuredCommand.main(args, COMMAND_FACTORY);
+		IStandardCommand.main(args, COMMAND_FACTORY);
 	}
 
 	protected final Context<ReleaseProject> context;
@@ -177,7 +177,7 @@ public class Release implements IConstructorCommand {
 	}
 
 	@Override
-	public int invoke() throws Throwable {
+	public IExit invoke() throws Throwable {
 		HLog.getLogControl().setLogLevel(Level.INFO);
 		log.info("Releasing: {}", getTargets());
 

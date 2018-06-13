@@ -11,6 +11,6 @@ public class BulldozerBuild implements IStructuredCommand {
 		builder.add(CreatePRs.COMMAND_FACTORY, "create-prs");
 		builder.add(Release.COMMAND_FACTORY, "release");
 		final IStandardCommand command = builder.build();
-		IStructuredCommand.main(args, command);
+		IStandardCommand.main(args, command);
 	}
 }

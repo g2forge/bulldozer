@@ -58,7 +58,7 @@ import org.xml.sax.SAXException;
 
 import com.g2forge.alexandria.command.IConstructorCommand;
 import com.g2forge.alexandria.command.IStandardCommand;
-import com.g2forge.alexandria.command.IStructuredCommand;
+import com.g2forge.alexandria.command.exit.IExit;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.function.IFunction1;
 import com.g2forge.alexandria.java.platform.PathSpec;
@@ -161,7 +161,7 @@ public class CreateProject implements IConstructorCommand {
 	}
 
 	public static void main(String[] args) throws Throwable {
-		IStructuredCommand.main(args, COMMAND_FACTORY);
+		IStandardCommand.main(args, COMMAND_FACTORY);
 	}
 
 	public static void updateMultiModulePOM(Path path, MavenProject.Protection protection, String name) throws SAXException, IOException, ParserConfigurationException, XPathExpressionException, TransformerFactoryConfigurationError, TransformerException {
@@ -208,7 +208,7 @@ public class CreateProject implements IConstructorCommand {
 	protected final String issue;
 
 	@Override
-	public int invoke() throws Throwable {
+	public IExit invoke() throws Throwable {
 		HLog.getLogControl().setLogLevel(Level.INFO);
 		final BulldozerCreateProject create = new InputLoader().load(BulldozerCreateProject.createInputType(getContext()));
 
