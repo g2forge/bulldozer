@@ -1,6 +1,5 @@
 package com.g2forge.bulldozer.build;
 
-import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.HashMap;
@@ -11,7 +10,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.transport.RefSpec;
 import org.kohsuke.github.GHIssueState;
@@ -21,8 +19,9 @@ import org.kohsuke.github.GHRepository;
 import org.semver.Version;
 import org.slf4j.event.Level;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
+import com.g2forge.alexandria.command.IConstructorCommand;
+import com.g2forge.alexandria.command.IStandardCommand;
+import com.g2forge.alexandria.command.exit.IExit;
 import com.g2forge.alexandria.data.graph.HGraph;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.log.HLog;
@@ -42,12 +41,15 @@ import lombok.extern.slf4j.Slf4j;
 
 @Data
 @Slf4j
-public class CreatePRs {
-	public static void main(String[] args) throws JsonParseException, JsonMappingException, IOException, GitAPIException {
-		final String branch = new CommandLineStringInput(args, 1).fallback(new UserStringInput("Branch", true)).get();
-		final String title = new CommandLineStringInput(args, 2).fallback(new UserStringInput("Title", true)).get();
-		final CreatePRs createPRs = new CreatePRs(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(args[0])), branch, title);
-		createPRs.createPRs();
+public class CreatePRs implements IConstructorCommand {
+	public static final IStandardCommand COMMAND_FACTORY = IStandardCommand.of(invocation -> {
+		final String branch = new CommandLineStringInput(invocation, 1).fallback(new UserStringInput("Branch", true)).get();
+		final String title = new CommandLineStringInput(invocation, 2).fallback(new UserStringInput("Title", true)).get();
+		return new CreatePRs(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(invocation.getArguments().get(0))), branch, title);
+	});
+
+	public static void main(String[] args) throws Throwable {
+		IStandardCommand.main(args, COMMAND_FACTORY);
 	}
 
 	protected final Context<BulldozerProject> context;
@@ -56,7 +58,8 @@ public class CreatePRs {
 
 	protected final String title;
 
-	public void createPRs() throws GitAPIException, IOException {
+	@Override
+	public IExit invoke() throws Throwable {
 		HLog.getLogControl().setLogLevel(Level.INFO);
 		// Fail if any repositories are dirty
 		getContext().failIfDirty();
@@ -148,5 +151,6 @@ public class CreatePRs {
 				if (changed) log.info("Set labels, assignee & milestone");
 			}
 		}
+		return SUCCESS;
 	}
 }

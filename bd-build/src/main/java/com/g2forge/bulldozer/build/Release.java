@@ -5,7 +5,6 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.stream.Collectors;
@@ -24,8 +23,9 @@ import org.semver.Version;
 import org.semver.Version.Element;
 import org.slf4j.event.Level;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
+import com.g2forge.alexandria.command.IConstructorCommand;
+import com.g2forge.alexandria.command.IStandardCommand;
+import com.g2forge.alexandria.command.exit.IExit;
 import com.g2forge.alexandria.data.graph.HGraph;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.fluent.optional.NullableOptional;
@@ -48,7 +48,16 @@ import lombok.extern.slf4j.Slf4j;
 
 @Data
 @Slf4j
-public class Release {
+public class Release implements IConstructorCommand {
+	public enum Phase {
+		Initial,
+		Prepared,
+		InstalledRelease,
+		Released,
+		InstalledDevelopment,
+		DeletedRelease,
+	}
+
 	public static class ReleaseProject extends BulldozerProject {
 		@Getter(lazy = true)
 		private final ReleaseProperties releaseProperties = computeReleaseProperties();
@@ -112,15 +121,6 @@ public class Release {
 		}
 	}
 
-	public enum Phase {
-		Initial,
-		Prepared,
-		InstalledRelease,
-		Released,
-		InstalledDevelopment,
-		DeletedRelease,
-	}
-
 	@Data
 	@Builder
 	@AllArgsConstructor
@@ -145,9 +145,13 @@ public class Release {
 
 	protected static final List<String> PROFILES_TO_UPDATE = Stream.of(MavenProject.Protection.values()).filter(p -> !MavenProject.Protection.Public.equals(p)).map(p -> p.name().toLowerCase()).collect(Collectors.toList());
 
-	public static void main(String[] args) throws JsonParseException, JsonMappingException, IOException, GitAPIException {
-		final Release release = new Release(new Context<ReleaseProject>(ReleaseProject::new, Paths.get(args[0])), args[1], HCollection.asList(Arrays.copyOfRange(args, 2, args.length)));
-		release.release();
+	public static final IStandardCommand COMMAND_FACTORY = IStandardCommand.of(invocation -> {
+		final List<String> arguments = invocation.getArguments();
+		return new Release(new Context<ReleaseProject>(ReleaseProject::new, Paths.get(arguments.get(0))), arguments.get(1), arguments.subList(2, arguments.size()));
+	});
+
+	public static void main(String[] args) throws Throwable {
+		IStandardCommand.main(args, COMMAND_FACTORY);
 	}
 
 	protected final Context<ReleaseProject> context;
@@ -158,7 +162,22 @@ public class Release {
 
 	protected final boolean allowDirty = new PropertyStringInput("bulldozer.allowdirty").map(Boolean::valueOf).fallback(NullableOptional.of(false)).get();
 
-	public void release() throws IOException, GitAPIException {
+	protected void commitUpstreamReversion(final Git git) throws IOException, GitAPIException {
+		final Status status = git.status().call();
+		if (!status.isClean() && !status.getUncommittedChanges().isEmpty()) {
+			final AddCommand add = git.add();
+			status.getUncommittedChanges().forEach(add::addFilepattern);
+			add.call();
+			git.commit().setMessage(getIssue() + " Updated upstream project versions").call();
+		}
+	}
+
+	protected String getBranch() {
+		return getIssue() + "-Release";
+	}
+
+	@Override
+	public IExit invoke() throws Throwable {
 		HLog.getLogControl().setLogLevel(Level.INFO);
 		log.info("Releasing: {}", getTargets());
 
@@ -303,20 +322,7 @@ public class Release {
 		} finally {
 			HIO.closeAll(getContext().getProjects().values());
 		}
-	}
-
-	protected void commitUpstreamReversion(final Git git) throws IOException, GitAPIException {
-		final Status status = git.status().call();
-		if (!status.isClean() && !status.getUncommittedChanges().isEmpty()) {
-			final AddCommand add = git.add();
-			status.getUncommittedChanges().forEach(add::addFilepattern);
-			add.call();
-			git.commit().setMessage(getIssue() + " Updated upstream project versions").call();
-		}
-	}
-
-	protected String getBranch() {
-		return getIssue() + "-Release";
+		return SUCCESS;
 	}
 
 	protected void switchToBranch(final Git git) throws IOException, GitAPIException {

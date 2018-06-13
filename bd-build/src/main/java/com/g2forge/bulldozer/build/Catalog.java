@@ -1,7 +1,6 @@
 package com.g2forge.bulldozer.build;
 
 import java.io.BufferedWriter;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -15,11 +14,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.eclipse.jgit.api.errors.GitAPIException;
 import org.slf4j.event.Level;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
+import com.g2forge.alexandria.command.IConstructorCommand;
+import com.g2forge.alexandria.command.IStandardCommand;
+import com.g2forge.alexandria.command.exit.IExit;
 import com.g2forge.alexandria.log.HLog;
 import com.g2forge.bulldozer.build.model.BulldozerProject;
 import com.g2forge.bulldozer.build.model.Context;
@@ -48,15 +47,17 @@ import lombok.Data;
 import net.sourceforge.plantuml.FileFormat;
 
 @Data
-public class Catalog {
-	public static void main(String[] args) throws JsonParseException, JsonMappingException, IOException, GitAPIException {
-		final Catalog catalog = new Catalog(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(args[0])));
-		catalog.catalog();
+public class Catalog implements IConstructorCommand {
+	public static final IStandardCommand COMMAND_FACTORY = IStandardCommand.of(invocation -> new Catalog(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(invocation.getArguments().get(0)))));
+
+	public static void main(String[] args) throws Throwable {
+		IStandardCommand.main(args, COMMAND_FACTORY);
 	}
 
 	protected final Context<BulldozerProject> context;
 
-	public void catalog() throws IOException, GitAPIException {
+	@Override
+	public IExit invoke() throws Throwable {
 		HLog.getLogControl().setLogLevel(Level.INFO);
 		final Block.BlockBuilder docBuilder = Block.builder().type(Block.Type.Block);
 		final Map<String, BulldozerProject> projects = getContext().getProjects();
@@ -144,5 +145,6 @@ public class Catalog {
 				writer.write(new MDRenderer().render(output));
 			}
 		}
+		return SUCCESS;
 	}
 }
