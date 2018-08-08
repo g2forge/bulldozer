@@ -287,9 +287,7 @@ public class CreateProject implements IConstructorCommand {
 		final Git git = HGit.createGit(directory, false);
 		if (!git.getRepository().getRemoteNames().contains(myself.getLogin())) {
 			log.info(String.format("Creating remote for %1$s -> %2$s", myself.getLogin(), fork.getSshUrl()));
-			final GitConfig config = new GitConfig(git);
-			config.getRemote(myself.getLogin()).add(fork.getSshUrl()).save();
-			git.pull().setTransportConfigCallback(context.getTransportConfig()).setRemote(myself.getLogin()).call();
+			HGit.addAndPullRemote(git, myself.getLogin(), remote -> remote.add(fork.getSshUrl()), context.getTransportConfig());
 		}
 
 		// Create the branch for out modifications
