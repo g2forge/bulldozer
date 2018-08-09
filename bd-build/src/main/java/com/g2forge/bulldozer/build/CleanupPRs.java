@@ -72,10 +72,10 @@ public class CleanupPRs implements IConstructorCommand {
 				final String remote = config.getBranch(getBranch()).getRemote();
 				log.info("Fetching from remotes {} and {}", origin, remote);
 
-				final List<RefSpec> originRefSpecs = new RemoteConfig(git.getRepository().getConfig(), origin).getFetchRefSpecs();
+				final List<RefSpec> originRefSpecs = new RemoteConfig(git.getRepository().getConfig(), origin).getFetchRefSpecs().stream().map(HGit::reverse).collect(Collectors.toList());
 				originFetch = git.fetch().setRemote(origin).setRefSpecs(originRefSpecs).setRemoveDeletedRefs(true).setTransportConfigCallback(getContext().getTransportConfig()).call();
 
-				final List<RefSpec> remoteRefSpecs = new RemoteConfig(git.getRepository().getConfig(), remote).getFetchRefSpecs();
+				final List<RefSpec> remoteRefSpecs = new RemoteConfig(git.getRepository().getConfig(), remote).getFetchRefSpecs().stream().map(HGit::reverse).collect(Collectors.toList());
 				git.fetch().setRemote(remote).setRefSpecs(remoteRefSpecs).setRemoveDeletedRefs(true).setTransportConfigCallback(getContext().getTransportConfig()).call();
 			}
 
