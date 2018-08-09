@@ -100,9 +100,11 @@ public class CleanupPRs implements IConstructorCommand {
 				if (!HGit.getMergeBase(git.getRepository(), branchId, remoteId).getId().equals(branchId)) throw new RuntimeException("Pull request was not merged into master!");
 			}
 
-			// Switch to origin
-			log.info("Checking out master");
-			git.checkout().setName(Constants.MASTER).call();
+			// If we're on the branch we're cleaning up, then switch to origin
+			if (git.getRepository().getBranch().equals(getBranch())) {
+				log.info("Checking out master");
+				git.checkout().setName(Constants.MASTER).call();
+			}
 
 			// Delete the PR branch
 			log.info("Deleting PR branch");
