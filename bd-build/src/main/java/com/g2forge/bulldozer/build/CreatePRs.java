@@ -78,7 +78,7 @@ public class CreatePRs implements IConstructorCommand {
 			{ // Push the branch
 				log.info(String.format("Pushing %1$s to remote %3$s:%2$s", getBranch(), remote, project.getName()));
 				project.getGit().push().setTransportConfigCallback(getContext().getTransportConfig()).setRemote(remote).setRefSpecs(new RefSpec(getBranch() + ":" + getBranch())).call();
-				HGit.setTracking(project.getGit(), getBranch(), remote, null);
+				new GitConfig(project.getGit()).getBranch(getBranch()).setTracking(remote, null).save();
 				log.info(String.format("Successfully pushed %1$s", project.getName()));
 			}
 
