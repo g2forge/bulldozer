@@ -11,8 +11,6 @@ import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.RefUpdate;
 import org.eclipse.jgit.lib.RefUpdate.Result;
 import org.eclipse.jgit.transport.FetchResult;
-import org.eclipse.jgit.transport.RefSpec;
-import org.eclipse.jgit.transport.RemoteConfig;
 import org.slf4j.event.Level;
 
 import com.g2forge.alexandria.command.IConstructorCommand;
@@ -69,26 +67,21 @@ public class CleanupPRs implements IConstructorCommand {
 			final FetchResult originFetch;
 			{ // Fetch from the relevant remotes
 				final String origin = config.getOrigin().getName();
-				final String remote = config.getBranch(getBranch()).getRemote();
-				log.info("Fetching from remotes {} and {}", origin, remote);
-
-				final List<RefSpec> originRefSpecs = new RemoteConfig(git.getRepository().getConfig(), origin).getFetchRefSpecs().stream().map(HGit::reverse).collect(Collectors.toList());
-				originFetch = git.fetch().setRemote(origin).setRefSpecs(originRefSpecs).setRemoveDeletedRefs(true).setTransportConfigCallback(getContext().getTransportConfig()).call();
-
-				final List<RefSpec> remoteRefSpecs = new RemoteConfig(git.getRepository().getConfig(), remote).getFetchRefSpecs().stream().map(HGit::reverse).collect(Collectors.toList());
-				git.fetch().setRemote(remote).setRefSpecs(remoteRefSpecs).setRemoveDeletedRefs(true).setTransportConfigCallback(getContext().getTransportConfig()).call();
+				final String fork = config.getBranch(getBranch()).getRemote();
+				log.info("Fetching from remotes {} and {}", origin, fork);
+				originFetch = git.fetch().setRemote(origin).setTransportConfigCallback(getContext().getTransportConfig()).call();
+				git.fetch().setRemote(fork).setRemoveDeletedRefs(true).setTransportConfigCallback(getContext().getTransportConfig()).call();
 			}
 
-			final ObjectId remoteId;
+			final ObjectId masterRemoteId;
 			{ // Fast-forward the master branch
-				final Ref masterRef = git.getRepository().findRef(Constants.MASTER);
-				final ObjectId localId = masterRef.getObjectId();
-				remoteId = originFetch.getAdvertisedRef(config.getBranch(Constants.MASTER).getTracking()).getObjectId();
+				final Ref masterLocalRef = git.getRepository().findRef(Constants.MASTER);
+				final ObjectId masterLocalId = masterLocalRef.getObjectId();
+				masterRemoteId = originFetch.getAdvertisedRef(config.getBranch(Constants.MASTER).getTracking()).getObjectId();
 
-				if (!HGit.getMergeBase(git.getRepository(), localId, remoteId).getId().equals(localId)) throw new RuntimeException("Failed to fast forward the local master branch!");
-				final RefUpdate update = git.getRepository().updateRef(masterRef.getTarget().getName());
-				update.setNewObjectId(remoteId);
-				update.setExpectedOldObjectId(localId);
+				final RefUpdate update = git.getRepository().updateRef(masterLocalRef.getTarget().getName());
+				update.setNewObjectId(masterRemoteId);
+				update.setExpectedOldObjectId(masterLocalId);
 				update.setRefLogMessage("fast forward merge on cleanup", false);
 				final Result result = update.update();
 				if ((result != Result.FAST_FORWARD) && (result != Result.NO_CHANGE)) throw new RuntimeException("Failed to fast forward the local master branch!");
@@ -97,7 +90,7 @@ public class CleanupPRs implements IConstructorCommand {
 			{ // Check that the PR has been merged
 				log.info("Checking that the PR was merged into the master branch");
 				final ObjectId branchId = git.getRepository().resolve(getBranch());
-				if (!HGit.getMergeBase(git.getRepository(), branchId, remoteId).getId().equals(branchId)) throw new RuntimeException("Pull request was not merged into master!");
+				if (!HGit.isMerged(git.getRepository(), masterRemoteId, branchId)) throw new RuntimeException("Pull request was not merged into master!");
 			}
 
 			// If we're on the branch we're cleaning up, then switch to origin
