@@ -6,7 +6,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.g2forge.alexandria.java.core.helpers.HStream;
-import com.g2forge.alexandria.java.typed.ATypeRef;
+import com.g2forge.alexandria.java.type.ref.ATypeRef;
 import com.g2forge.gearbox.functional.control.Command;
 import com.g2forge.gearbox.functional.control.Constant;
 import com.g2forge.gearbox.functional.control.Explicit;

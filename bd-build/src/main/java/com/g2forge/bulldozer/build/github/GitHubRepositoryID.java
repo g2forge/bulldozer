@@ -11,11 +11,11 @@ import lombok.Data;
 @Builder
 @AllArgsConstructor
 public class GitHubRepositoryID {
-	protected static final Pattern GITHUB_URL_SSH = Pattern.compile("git@github\\.com:([^/]+)/([^.]+)\\.git");
+	protected static final Pattern GITHUB_URL_SSH = Pattern.compile("git@[^:]+:([^/]+)/([^.]+)\\.git");
 
 	public static GitHubRepositoryID fromURL(String url) {
 		final Matcher matcher = GITHUB_URL_SSH.matcher(url);
-		if (!matcher.matches()) throw new IllegalArgumentException();
+		if (!matcher.matches()) throw new IllegalArgumentException(String.format("URL \"%1$s\" does not appear to be a github SSH URL!", url));
 		return new GitHubRepositoryID(matcher.group(1), matcher.group(2));
 	}
 
