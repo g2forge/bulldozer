@@ -7,7 +7,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-import com.g2forge.alexandria.java.enums.HEnum;
+import com.g2forge.alexandria.java.core.enums.HEnum;
 import com.g2forge.bulldozer.build.maven.POM;
 import com.g2forge.bulldozer.build.maven.Profile;
 
