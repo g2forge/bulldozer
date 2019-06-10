@@ -54,7 +54,7 @@
 
 		<dependency>
 			<groupId>com.g2forge.gearbox</groupId>
-			<artifactId>gb-functional</artifactId>
+			<artifactId>gb-command</artifactId>
 			<version>${gearbox.version}</version>
 		</dependency>
 		<dependency>
