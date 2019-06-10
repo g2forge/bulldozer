@@ -32,7 +32,7 @@ public interface IMaven {
 			}
 			final Named named = context.getArgument().getAnnotation(Named.class);
 			final String string = (named == null ? "" : named.value()) + stream.collect(Collectors.joining(","));
-			context.getCommand().argument(string);
+			context.getCommandInvocation().argument(string);
 		}
 	}
 
@@ -50,8 +50,8 @@ public interface IMaven {
 		@Override
 		public void accept(IArgumentContext context, Object argument) {
 			final boolean snapshots = (Boolean) argument;
-			context.getCommand().argument(snapshots ? "versions:use-latest-snapshots" : "versions:use-latest-releases");
-			if (snapshots) context.getCommand().argument("-DallowSnapshots=true");
+			context.getCommandInvocation().argument(snapshots ? "versions:use-latest-snapshots" : "versions:use-latest-releases");
+			if (snapshots) context.getCommandInvocation().argument("-DallowSnapshots=true");
 		}
 	}
 
