@@ -7,17 +7,17 @@ import java.util.stream.Stream;
 
 import com.g2forge.alexandria.java.core.helpers.HStream;
 import com.g2forge.alexandria.java.type.ref.ATypeRef;
-import com.g2forge.gearbox.functional.control.Command;
-import com.g2forge.gearbox.functional.control.Constant;
-import com.g2forge.gearbox.functional.control.Explicit;
-import com.g2forge.gearbox.functional.control.Flag;
-import com.g2forge.gearbox.functional.control.IArgumentContext;
-import com.g2forge.gearbox.functional.control.IExplicitArgumentHandler;
-import com.g2forge.gearbox.functional.control.IExplicitResultHandler;
-import com.g2forge.gearbox.functional.control.IResultContext;
-import com.g2forge.gearbox.functional.control.Named;
-import com.g2forge.gearbox.functional.control.Working;
-import com.g2forge.gearbox.functional.runner.IProcess;
+import com.g2forge.gearbox.command.v1.control.Command;
+import com.g2forge.gearbox.command.v1.control.Constant;
+import com.g2forge.gearbox.command.v1.control.Explicit;
+import com.g2forge.gearbox.command.v1.control.Flag;
+import com.g2forge.gearbox.command.v1.control.IArgumentContext;
+import com.g2forge.gearbox.command.v1.control.IExplicitArgumentHandler;
+import com.g2forge.gearbox.command.v1.control.IExplicitResultHandler;
+import com.g2forge.gearbox.command.v1.control.IResultContext;
+import com.g2forge.gearbox.command.v1.control.Named;
+import com.g2forge.gearbox.command.v1.control.Working;
+import com.g2forge.gearbox.command.v1.runner.IProcess;
 
 public interface IMaven {
 	public static class CSVArgumentHandler implements IExplicitArgumentHandler {
