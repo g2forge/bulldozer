@@ -7,6 +7,7 @@ import java.util.stream.Stream;
 
 import com.g2forge.alexandria.java.core.helpers.HStream;
 import com.g2forge.alexandria.java.type.ref.ATypeRef;
+import com.g2forge.gearbox.command.runner.IProcess;
 import com.g2forge.gearbox.command.v1.control.Command;
 import com.g2forge.gearbox.command.v1.control.Constant;
 import com.g2forge.gearbox.command.v1.control.Explicit;
@@ -17,7 +18,6 @@ import com.g2forge.gearbox.command.v1.control.IExplicitResultHandler;
 import com.g2forge.gearbox.command.v1.control.IResultContext;
 import com.g2forge.gearbox.command.v1.control.Named;
 import com.g2forge.gearbox.command.v1.control.Working;
-import com.g2forge.gearbox.command.v1.runner.IProcess;
 
 public interface IMaven {
 	public static class CSVArgumentHandler implements IExplicitArgumentHandler {
