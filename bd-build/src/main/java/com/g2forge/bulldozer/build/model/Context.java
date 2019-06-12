@@ -29,7 +29,8 @@ import com.g2forge.bulldozer.build.maven.IMaven;
 import com.g2forge.bulldozer.build.model.maven.MavenProject;
 import com.g2forge.bulldozer.build.model.maven.MavenProjects;
 import com.g2forge.gearbox.command.process.ProcessBuilderRunner;
-import com.g2forge.gearbox.command.v1.proxy.Proxifier;
+import com.g2forge.gearbox.command.v2.converter.dumb.DumbCommandConverter;
+import com.g2forge.gearbox.command.v2.proxy.CommandProxyFactory;
 import com.g2forge.gearbox.git.HGit;
 
 import lombok.AllArgsConstructor;
@@ -50,7 +51,7 @@ public class Context<P extends BulldozerProject> {
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@Getter(lazy = true)
-	private final IMaven maven = new Proxifier().generate(new ProcessBuilderRunner(), IMaven.class);
+	private final IMaven maven = new CommandProxyFactory(DumbCommandConverter.create(), new ProcessBuilderRunner()).apply(IMaven.class);
 
 	@Getter(lazy = true)
 	private final GitHub github = computeGitHub();
