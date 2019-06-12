@@ -18,8 +18,9 @@ import com.g2forge.gearbox.command.v1.control.IExplicitResultHandler;
 import com.g2forge.gearbox.command.v1.control.IResultContext;
 import com.g2forge.gearbox.command.v1.control.Named;
 import com.g2forge.gearbox.command.v1.control.Working;
+import com.g2forge.gearbox.command.v2.proxy.method.ICommandInterface;
 
-public interface IMaven {
+public interface IMaven extends ICommandInterface {
 	public static class CSVArgumentHandler implements IExplicitArgumentHandler {
 		@Override
 		public void accept(IArgumentContext context, Object argument) {
