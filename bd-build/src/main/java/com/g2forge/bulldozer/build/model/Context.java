@@ -28,9 +28,9 @@ import com.g2forge.alexandria.wizard.UserPasswordInput;
 import com.g2forge.bulldozer.build.maven.IMaven;
 import com.g2forge.bulldozer.build.model.maven.MavenProject;
 import com.g2forge.bulldozer.build.model.maven.MavenProjects;
+import com.g2forge.gearbox.command.converter.dumb.DumbCommandConverter;
 import com.g2forge.gearbox.command.process.ProcessBuilderRunner;
-import com.g2forge.gearbox.command.v2.converter.dumb.DumbCommandConverter;
-import com.g2forge.gearbox.command.v2.proxy.CommandProxyFactory;
+import com.g2forge.gearbox.command.proxy.CommandProxyFactory;
 import com.g2forge.gearbox.git.HGit;
 
 import lombok.AllArgsConstructor;

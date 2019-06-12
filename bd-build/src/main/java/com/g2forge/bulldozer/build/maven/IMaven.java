@@ -8,15 +8,15 @@ import java.util.stream.Stream;
 
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.core.helpers.HStream;
-import com.g2forge.gearbox.command.v2.converter.IMethodArgument;
-import com.g2forge.gearbox.command.v2.converter.dumb.ArgumentRenderer;
-import com.g2forge.gearbox.command.v2.converter.dumb.Command;
-import com.g2forge.gearbox.command.v2.converter.dumb.Constant;
-import com.g2forge.gearbox.command.v2.converter.dumb.Flag;
-import com.g2forge.gearbox.command.v2.converter.dumb.IArgumentRenderer;
-import com.g2forge.gearbox.command.v2.converter.dumb.Named;
-import com.g2forge.gearbox.command.v2.converter.dumb.Working;
-import com.g2forge.gearbox.command.v2.proxy.method.ICommandInterface;
+import com.g2forge.gearbox.command.converter.IMethodArgument;
+import com.g2forge.gearbox.command.converter.dumb.ArgumentRenderer;
+import com.g2forge.gearbox.command.converter.dumb.Command;
+import com.g2forge.gearbox.command.converter.dumb.Constant;
+import com.g2forge.gearbox.command.converter.dumb.Flag;
+import com.g2forge.gearbox.command.converter.dumb.IArgumentRenderer;
+import com.g2forge.gearbox.command.converter.dumb.Named;
+import com.g2forge.gearbox.command.converter.dumb.Working;
+import com.g2forge.gearbox.command.proxy.method.ICommandInterface;
 
 public interface IMaven extends ICommandInterface {
 	public static class CSVArgumentRenderer implements IArgumentRenderer<Object> {
