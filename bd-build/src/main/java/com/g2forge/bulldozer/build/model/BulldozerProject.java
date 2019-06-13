@@ -142,7 +142,7 @@ public class BulldozerProject implements ICloseable {
 
 		String currentGroup = group;
 		Path currentDirectory = getDirectory();
-		while (currentGroup == group) {
+		while (currentGroup.equals(group)) {
 			currentGroup = maven.evaluate(currentDirectory, "project.parent.groupId");
 			currentDirectory = Paths.get(maven.evaluate(currentDirectory, "project.parent.basedir"));
 		}
