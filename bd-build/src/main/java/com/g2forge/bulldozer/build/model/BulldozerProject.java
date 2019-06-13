@@ -108,7 +108,7 @@ public class BulldozerProject implements ICloseable {
 			final String name = getName();
 			log.info("Loading dependencies for {}", name);
 			// Run maven dependencies and filter the output down to usable information
-			final Map<String, List<ITuple2G_<Descriptor, Boolean>>> grouped = getContext().getMaven().dependencyTree(getDirectory(), true, groupToProject.keySet().stream().map(g -> g + ":*").collect(Collectors.toList()))/*.map(new TapFunction<>(System.out::println))*/.filter(line -> {
+			final Map<String, List<ITuple2G_<Descriptor, Boolean>>> grouped = getContext().getMaven().dependencyTree(getDirectory(), true, groupToProject.keySet().stream().map(g -> g + ":*").collect(Collectors.toList()))/*.peek(System.out::println)*/.filter(line -> {
 				if (!line.startsWith("[INFO]")) return false;
 				for (BulldozerProject publicProject : nameToProject.values()) {
 					if (line.contains("- " + publicProject.getGroup())) return true;
