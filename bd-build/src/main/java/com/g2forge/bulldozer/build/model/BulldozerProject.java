@@ -44,6 +44,17 @@ import lombok.extern.slf4j.Slf4j;
 public class BulldozerProject implements ICloseable {
 	protected static final String BRANCH_DUMMY = "bulldozer-dummy";
 
+	/**
+	 * Get the single version of an upstream dependency used by this project, from all the versions we found in the dependency tree. This method exists so that
+	 * errors aren't thrown during a release, when we evaluate dependencies between updates. Because we update versions of downstream projects without
+	 * installing them it's possible for an upstream library to show both the release version in progress and it's snapshot.
+	 * 
+	 * In a better world we'd just install downstream projects as we update their versions, and we'd update the downstream projects in a topologically sorted
+	 * order.
+	 * 
+	 * @param versions The set of versions of the upstream project.
+	 * @return <code>null</code> if there is no single version, otherwise the single (release, not snapshot) version of the upstream library.
+	 */
 	protected static String getSingleVersions(Set<String> versions) {
 		if (versions.size() == 1) return HCollection.getOne(versions);
 		if (versions.size() == 2) {
@@ -77,7 +88,7 @@ public class BulldozerProject implements ICloseable {
 	private final BulldozerDependencies dependencies = computeDependencies();
 
 	@Getter(lazy = true)
-	private final String parentGroup = loadTemp(BulldozerTemp::getVersion, BulldozerTemp::setVersion, () -> computeParentGroup());
+	private final String parentGroup = loadTemp(BulldozerTemp::getParentGroup, BulldozerTemp::setParentGroup, () -> computeParentGroup());
 
 	@Getter(lazy = true)
 	private final GitHubRepositoryID githubMaster = GitHubRepositoryID.fromURL(new GitConfig(getGit()).getOrigin().getURL());
