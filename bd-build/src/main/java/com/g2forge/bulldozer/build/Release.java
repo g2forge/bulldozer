@@ -27,6 +27,7 @@ import com.g2forge.alexandria.adt.graph.HGraph;
 import com.g2forge.alexandria.command.IConstructorCommand;
 import com.g2forge.alexandria.command.IStandardCommand;
 import com.g2forge.alexandria.command.exit.IExit;
+import com.g2forge.alexandria.java.close.ICloseable;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.fluent.optional.NullableOptional;
 import com.g2forge.alexandria.java.io.HIO;
@@ -108,7 +109,7 @@ public class Release implements IConstructorCommand {
 			final String releaseVersion = release.toString();
 			retVal.release(releaseVersion);
 			retVal.tag(releaseVersion);
-			retVal.development(release.next(Element.PATCH).toString() + "-SNAPSHOT");
+			retVal.development(release.next(Element.PATCH).toString() + IMaven.SNAPSHOT);
 			return retVal.build();
 		}
 
@@ -185,7 +186,7 @@ public class Release implements IConstructorCommand {
 
 		// Load information about all the projects
 		log.info("Loading project information");
-		try {
+		try (ICloseable closeProjects = () -> HIO.closeAll(getContext().getProjects().values())) {
 			// Print a list of the public projects
 			final List<ReleaseProject> publicProjects = getContext().getProjects().values().stream().filter(project -> MavenProject.Protection.Public.equals(project.getProject().getProtection())).collect(Collectors.toList());
 			log.info("Public projects: {}", publicProjects.stream().map(BulldozerProject::getName).collect(Collectors.joining(", ")));
@@ -321,8 +322,6 @@ public class Release implements IConstructorCommand {
 					phase = project.updatePhase(Phase.DeletedRelease);
 				}
 			}
-		} finally {
-			HIO.closeAll(getContext().getProjects().values());
 		}
 		return SUCCESS;
 	}

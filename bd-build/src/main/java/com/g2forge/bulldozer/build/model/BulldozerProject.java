@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -12,6 +13,7 @@ import java.util.stream.Collectors;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.Constants;
 
+import com.g2forge.alexandria.java.adt.identity.MappedComparator;
 import com.g2forge.alexandria.java.adt.tuple.ITuple1G_;
 import com.g2forge.alexandria.java.adt.tuple.ITuple2G_;
 import com.g2forge.alexandria.java.adt.tuple.implementations.Tuple2G_I;
@@ -40,6 +42,16 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class BulldozerProject implements ICloseable {
 	protected static final String BRANCH_DUMMY = "bulldozer-dummy";
+
+	protected static String getSingleVersions(Set<String> versions) {
+		if (versions.size() == 1) return HCollection.getOne(versions);
+		if (versions.size() == 2) {
+			final List<String> list = new ArrayList<>(versions);
+			Collections.sort(list, new MappedComparator<>(String::length));
+			if (list.get(1).equals(list.get(0) + IMaven.SNAPSHOT)) return list.get(1);
+		}
+		return null;
+	}
 
 	protected final Context<? extends BulldozerProject> context;
 
@@ -95,8 +107,8 @@ public class BulldozerProject implements ICloseable {
 				final String group = tuples.get(0).get0().getGroupId();
 
 				final Set<String> versions = tuples.stream().map(ITuple1G_::get0).map(Descriptor::getVersion).collect(Collectors.toSet());
-				if (versions.size() > 1) throw new IllegalArgumentException(String.format("%3$s depends on multiple versions of the project \"%1$s\": %2$s", group, versions, name));
-				final String version = HCollection.getOne(versions);
+				final String version = getSingleVersions(versions);
+				if (version == null) throw new IllegalArgumentException(String.format("%3$s depends on multiple versions of the project \"%1$s\": %2$s", group, versions, name));
 				final String dependency = groupToProject.get(group).getName();
 
 				// If any of the dependencies are immediate, then the project dependency is

@@ -42,6 +42,8 @@ public interface IMaven extends ICommandInterface {
 			return HCollection.asList("versions:use-latest-releases");
 		}
 	}
+	
+	public static String SNAPSHOT = "-SNAPSHOT";
 
 	public static String RELEASE_PROPERTIES = "release.properties";
 
