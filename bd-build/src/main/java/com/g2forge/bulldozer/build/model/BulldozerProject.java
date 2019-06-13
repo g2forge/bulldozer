@@ -77,7 +77,7 @@ public class BulldozerProject implements ICloseable {
 	private final BulldozerDependencies dependencies = computeDependencies();
 
 	@Getter(lazy = true)
-	private final String parentGroup = loadTemp(BulldozerTemp::getVersion, BulldozerTemp::setVersion, () -> computeParentGroup());
+	private final String parentGroup = loadTemp(BulldozerTemp::getParentGroup, BulldozerTemp::setParentGroup, () -> computeParentGroup());
 
 	@Getter(lazy = true)
 	private final GitHubRepositoryID githubMaster = GitHubRepositoryID.fromURL(new GitConfig(getGit()).getOrigin().getURL());
