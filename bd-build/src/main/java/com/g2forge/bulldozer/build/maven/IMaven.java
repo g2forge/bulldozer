@@ -42,7 +42,15 @@ public interface IMaven extends ICommandInterface {
 			return HCollection.asList("versions:use-latest-releases");
 		}
 	}
-	
+
+	public static class UpdateParentArgumentRenderer implements IArgumentRenderer<Boolean> {
+		@Override
+		public List<String> render(IMethodArgument<Boolean> argument) {
+			if (argument.get()) return HCollection.asList("versions:update-parent");
+			return HCollection.emptyList();
+		}
+	}
+
 	public static String SNAPSHOT = "-SNAPSHOT";
 
 	public static String RELEASE_PROPERTIES = "release.properties";
@@ -71,6 +79,6 @@ public interface IMaven extends ICommandInterface {
 	@Command({ "mvn", "--batch-mode", "release:prepare", "-Prelease" })
 	public void releasePrepare(@Working Path path, @Named("-Dtag") String tag, @Named("-DreleaseVersion") String release, @Named("-DdevelopmentVersion=") String development);
 
-	@Command({ "mvn", "versions:update-parent" })
-	public void updateVersions(@Working Path path, @ArgumentRenderer(SnapshotArgumentRenderer.class) @Constant("versions:update-properties") boolean snapshot, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-P") List<String> profiles, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-Dincludes=") List<String> includes);
+	@Command({ "mvn" })
+	public void updateVersions(@Working Path path, @ArgumentRenderer(UpdateParentArgumentRenderer.class) boolean parent, @ArgumentRenderer(SnapshotArgumentRenderer.class) @Constant("versions:update-properties") boolean snapshot, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-P") List<String> profiles, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-Dincludes=") List<String> includes);
 }

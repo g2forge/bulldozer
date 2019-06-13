@@ -3,6 +3,7 @@ package com.g2forge.bulldozer.build.model;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -76,6 +77,9 @@ public class BulldozerProject implements ICloseable {
 	private final BulldozerDependencies dependencies = computeDependencies();
 
 	@Getter(lazy = true)
+	private final String parentGroup = loadTemp(BulldozerTemp::getVersion, BulldozerTemp::setVersion, () -> computeParentGroup());
+
+	@Getter(lazy = true)
 	private final GitHubRepositoryID githubMaster = GitHubRepositoryID.fromURL(new GitConfig(getGit()).getOrigin().getURL());
 
 	@Getter(lazy = true, value = AccessLevel.PROTECTED)
@@ -130,6 +134,19 @@ public class BulldozerProject implements ICloseable {
 		final Git retVal = HGit.createGit(getContext().getRoot().resolve(getProject().getRelative().getName(0)), false);
 		getCloseables().add(retVal);
 		return retVal;
+	}
+
+	protected String computeParentGroup() {
+		final String group = getGroup();
+		final IMaven maven = getContext().getMaven();
+
+		String currentGroup = group;
+		Path currentDirectory = getDirectory();
+		while (currentGroup == group) {
+			currentGroup = maven.evaluate(currentDirectory, "project.parent.groupId");
+			currentDirectory = Paths.get(maven.evaluate(currentDirectory, "project.parent.basedir"));
+		}
+		return currentGroup;
 	}
 
 	protected POM computePOM() {
