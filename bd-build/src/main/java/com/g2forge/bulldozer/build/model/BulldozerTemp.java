@@ -19,4 +19,6 @@ public class BulldozerTemp {
 	protected String version;
 
 	protected BulldozerDependencies dependencies;
+
+	protected String parentGroup;
 }

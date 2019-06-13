@@ -244,7 +244,7 @@ public class Release implements IConstructorCommand {
 						if ((downstream == project) || !downstream.getDependencies().getTransitive().keySet().contains(name)) continue;
 						// Update all the downstreams to new release versions
 						switchToBranch(downstream.getGit());
-						getContext().getMaven().updateVersions(downstream.getDirectory(), false, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
+						getContext().getMaven().updateVersions(downstream.getDirectory(), downstream.getParentGroup().equals(project.getGroup()), false, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
 					}
 
 					phase = project.updatePhase(Phase.InstalledRelease);
@@ -286,7 +286,7 @@ public class Release implements IConstructorCommand {
 						if ((downstream == project) || !downstream.getDependencies().getTransitive().keySet().contains(name)) continue;
 						// Update all the downstreams to new snapshot versions
 						switchToBranch(downstream.getGit());
-						getContext().getMaven().updateVersions(downstream.getDirectory(), true, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
+						getContext().getMaven().updateVersions(downstream.getDirectory(), downstream.getParentGroup().equals(project.getGroup()), true, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
 					}
 
 					phase = project.updatePhase(Phase.InstalledDevelopment);
