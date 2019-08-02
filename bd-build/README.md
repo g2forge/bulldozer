@@ -9,8 +9,8 @@
 	"prefix" : "bd",
 	"version" : "0.0.1",
 	"protection" : "Public",
-	"parent" : "Alexandria",
-	"dependencies" : ["Alexandria"],
+	"parent" : "alexandria",
+	"dependencies" : ["alexandria"],
 	"license" : "Apache2"
 }
 ```
@@ -23,8 +23,8 @@
   * `"Public"` denotes a project that will be visible to the world.
   * `"Private"` denotes a project that will be visible only to people with permissions at the GitHub organization level.
   * `"Sandbox"` denotes a project this is private, and is generally not built with other projects.
-* `parent`: The name of the parent project.  Will usually be `"Alexandria"`.
-* `dependencies`: An array of the names of any projects on which this one depends. Will often be `["Alexandria"]`
+* `parent`: The name of the parent project.  Will usually be `"alexandria"`.
+* `dependencies`: An array of the names of any projects on which this one depends. Will often be `["alexandria"]`
 * `license`: The license to apply to this project.
   * `"Apache2"` should generally be used for all code
   * `"MIT"` may be more appropriate for websites, typescript libraries and the like
