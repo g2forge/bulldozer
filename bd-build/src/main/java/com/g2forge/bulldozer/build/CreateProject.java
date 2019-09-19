@@ -62,13 +62,13 @@ import com.g2forge.alexandria.command.exit.IExit;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.function.IFunction1;
 import com.g2forge.alexandria.java.platform.PathSpec;
+import com.g2forge.alexandria.java.project.HProject;
 import com.g2forge.alexandria.log.HLog;
 import com.g2forge.alexandria.wizard.CommandLineStringInput;
 import com.g2forge.alexandria.wizard.UserStringInput;
 import com.g2forge.bulldozer.build.github.GitHubRepositoryID;
 import com.g2forge.bulldozer.build.input.InputLoader;
 import com.g2forge.bulldozer.build.maven.Descriptor;
-import com.g2forge.bulldozer.build.maven.IMaven;
 import com.g2forge.bulldozer.build.maven.POM;
 import com.g2forge.bulldozer.build.maven.Parent;
 import com.g2forge.bulldozer.build.maven.build.Build;
@@ -337,7 +337,7 @@ public class CreateProject implements IConstructorCommand {
 				if (create.getParent() != null) {
 					parentBulldozerProject = getContext().getProjects().get(create.getParent());
 					parentProjectParent = parentBulldozerProject.getPom().getParent();
-					final Path relativePath = projectDirectory.relativize(parentBulldozerProject.getDirectory().resolve(Paths.get(parentProjectParent.getRelativePath()).getParent())).resolve(IMaven.POM_XML);
+					final Path relativePath = projectDirectory.relativize(parentBulldozerProject.getDirectory().resolve(Paths.get(parentProjectParent.getRelativePath()).getParent())).resolve(HProject.POM);
 					pom.parent(Parent.builder().groupId(parentProjectParent.getGroupId()).artifactId(parentProjectParent.getArtifactId()).version(parentProjectParent.getVersion()).relativePath(PathSpec.UNIX.canonizePath(relativePath.toString())).build());
 					pom.property(create.getParent() + ".version", parentBulldozerProject.getVersion());
 				} else {
@@ -372,7 +372,7 @@ public class CreateProject implements IConstructorCommand {
 				}
 				pom.build(Build.builder().plugin(VersionsPlugin.builder().version("2.5").configuration(builder.build()).build()).build());
 				projectPOM = pom.build_();
-				getContext().getXmlMapper().writeValue(projectDirectory.resolve(IMaven.POM_XML).toFile(), projectPOM);
+				getContext().getXmlMapper().writeValue(projectDirectory.resolve(HProject.POM).toFile(), projectPOM);
 			}
 
 			{ // Create the root pom
@@ -381,12 +381,12 @@ public class CreateProject implements IConstructorCommand {
 				final POM.POMBuilder pom = POM.builder();
 				pom.modelVersion("4.0.0");
 				pom.artifactId(repositoryName).packaging("pom");
-				pom.parent(Parent.builder().groupId(projectPOM.getGroupId()).artifactId(projectPOM.getArtifactId()).version(projectPOM.getVersion()).relativePath(PathSpec.UNIX.canonizePath(relativePath.resolve(IMaven.POM_XML).toString())).build());
+				pom.parent(Parent.builder().groupId(projectPOM.getGroupId()).artifactId(projectPOM.getArtifactId()).version(projectPOM.getVersion()).relativePath(PathSpec.UNIX.canonizePath(relativePath.resolve(HProject.POM).toString())).build());
 				pom.name(create.getName()).description(create.getDescription());
 				pom.module(PathSpec.UNIX.canonizePath(relativePath.toString()));
-				getContext().getXmlMapper().writeValue(directory.resolve(IMaven.POM_XML).toFile(), pom.build_());
+				getContext().getXmlMapper().writeValue(directory.resolve(HProject.POM).toFile(), pom.build_());
 			}
-			commit(git, getIssue() + " Create pom files", IMaven.POM_XML, projectName + "/" + IMaven.POM_XML);
+			commit(git, getIssue() + " Create pom files", HProject.POM, projectName + "/" + HProject.POM);
 		}
 
 		{ // Modify the root project pom.xml file
@@ -394,7 +394,7 @@ public class CreateProject implements IConstructorCommand {
 			if (!HGit.isBranch(rootGit, branch)) rootGit.checkout().setCreateBranch(true).setName(branch).call();
 
 			try {
-				updateMultiModulePOM(rootDirectory.resolve(IMaven.POM_XML), create.getProtection(), rootDirectory.relativize(directory).toString());
+				updateMultiModulePOM(rootDirectory.resolve(HProject.POM), create.getProtection(), rootDirectory.relativize(directory).toString());
 			} catch (XPathExpressionException | SAXException | ParserConfigurationException | TransformerFactoryConfigurationError | TransformerException e) {
 				throw new RuntimeException(e);
 			}
@@ -403,7 +403,7 @@ public class CreateProject implements IConstructorCommand {
 			ignores.add("/" + repositoryName);
 			new GitIgnore(new ArrayList<>(ignores)).store(rootDirectory);
 
-			commit(rootGit, getIssue() + " Added " + create.getName(), IMaven.POM_XML, Constants.GITIGNORE_FILENAME);
+			commit(rootGit, getIssue() + " Added " + create.getName(), HProject.POM, Constants.GITIGNORE_FILENAME);
 		}
 
 		// Note that we do not push the branch or open PRs, there is another command for that

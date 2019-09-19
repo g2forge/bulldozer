@@ -51,11 +51,9 @@ public interface IMaven extends ICommandInterface {
 		}
 	}
 
-	public static String SNAPSHOT = "-SNAPSHOT";
+	public static final String SNAPSHOT = "-SNAPSHOT";
 
-	public static String RELEASE_PROPERTIES = "release.properties";
-
-	public static String POM_XML = "pom.xml";
+	public static final String RELEASE_PROPERTIES = "release.properties";
 
 	@Command({ "mvn", "dependency:tree" })
 	public Stream<String> dependencyTree(@Working Path path, @Flag("-Dverbose") boolean verbose, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-Dincludes=") List<String> includes);

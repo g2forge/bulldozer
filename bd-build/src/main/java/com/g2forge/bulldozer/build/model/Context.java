@@ -23,6 +23,7 @@ import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.function.IFunction1;
 import com.g2forge.alexandria.java.function.IFunction2;
 import com.g2forge.alexandria.java.io.RuntimeIOException;
+import com.g2forge.alexandria.java.project.HProject;
 import com.g2forge.alexandria.wizard.PropertyStringInput;
 import com.g2forge.alexandria.wizard.UserPasswordInput;
 import com.g2forge.bulldozer.build.maven.IMaven;
@@ -85,7 +86,7 @@ public class Context<P extends BulldozerProject> {
 
 	protected final Map<String, P> computeProjects() {
 		final Map<String, P> retVal = new LinkedHashMap<>();
-		for (MavenProject mavenProject : new MavenProjects(getRoot().resolve(IMaven.POM_XML)).getProjects()) {
+		for (MavenProject mavenProject : new MavenProjects(getRoot().resolve(HProject.POM)).getProjects()) {
 			final P bulldozerProject = getConstructor().apply(this, mavenProject);
 			retVal.put(bulldozerProject.getName(), bulldozerProject);
 		}
