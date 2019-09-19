@@ -25,6 +25,7 @@ import com.g2forge.alexandria.java.function.IFunction1;
 import com.g2forge.alexandria.java.function.ISupplier;
 import com.g2forge.alexandria.java.io.HIO;
 import com.g2forge.alexandria.java.io.RuntimeIOException;
+import com.g2forge.alexandria.java.project.HProject;
 import com.g2forge.bulldozer.build.github.GitHubRepositoryID;
 import com.g2forge.bulldozer.build.maven.Descriptor;
 import com.g2forge.bulldozer.build.maven.IMaven;
@@ -162,9 +163,9 @@ public class BulldozerProject implements ICloseable {
 
 	protected POM computePOM() {
 		try {
-			return getContext().getXmlMapper().readValue(getDirectory().resolve(IMaven.POM_XML).toFile(), POM.class);
+			return getContext().getXmlMapper().readValue(getDirectory().resolve(HProject.POM).toFile(), POM.class);
 		} catch (IOException e) {
-			throw new RuntimeIOException(String.format("Failed to read %1$s for %2$s!", IMaven.POM_XML, getProject().getRelative()), e);
+			throw new RuntimeIOException(String.format("Failed to read %1$s for %2$s!", HProject.POM, getProject().getRelative()), e);
 		}
 	}
 
