@@ -67,9 +67,11 @@ public class Release implements IConstructorCommand {
 			super(context, project);
 		}
 
-		public void checkoutTag(String tag) throws RefAlreadyExistsException, RefNotFoundException, InvalidRefNameException, CheckoutConflictException, GitAPIException {
+		public void checkoutTag(String tag) throws RefAlreadyExistsException, RefNotFoundException, InvalidRefNameException, CheckoutConflictException, GitAPIException, IOException {
+			final String previous = getGit().getRepository().getBranch();
 			getGit().checkout().setCreateBranch(true).setName(BRANCH_DUMMY).setStartPoint(Constants.R_TAGS + tag).call();
 			this.getCloseables().add(() -> {
+				getGit().checkout().setName(previous).call();
 				getGit().branchDelete().setBranchNames(BRANCH_DUMMY).call();
 			});
 		}
