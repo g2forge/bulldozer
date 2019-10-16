@@ -16,9 +16,11 @@ import org.kohsuke.github.GHIssueState;
 import org.kohsuke.github.GHMilestone;
 import org.kohsuke.github.GHPullRequest;
 import org.kohsuke.github.GHRepository;
+import org.kohsuke.github.HttpException;
 import org.semver.Version;
 import org.slf4j.event.Level;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.g2forge.alexandria.adt.graph.HGraph;
 import com.g2forge.alexandria.command.IConstructorCommand;
 import com.g2forge.alexandria.command.IStandardCommand;
@@ -37,6 +39,8 @@ import com.g2forge.enigma.document.Text;
 import com.g2forge.enigma.document.convert.md.MDRenderer;
 import com.g2forge.gearbox.git.GitConfig;
 import com.g2forge.gearbox.git.HGit;
+import com.g2forge.gearbox.github.GHError;
+import com.g2forge.gearbox.github.GHError.Error;
 
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -117,7 +121,17 @@ public class CreatePRs implements IConstructorCommand {
 						body = new MDRenderer().render(builder.build());
 					}
 
-					pr = repository.createPullRequest(getTitle(), head, base, body);
+					try {
+						pr = repository.createPullRequest(getTitle(), head, base, body);
+					} catch (HttpException exception) {
+						if (exception.getResponseCode() != 422) throw exception;
+						final GHError error = new ObjectMapper().readValue(exception.getMessage(), GHError.class);
+						if (error.getErrors().size() != 1) throw exception;
+						final Error actual = HCollection.getOne(error.getErrors());
+						if (!"PullRequest".equals(actual.getResource())) throw exception;
+						if ((actual.getMessage() == null) || !actual.getMessage().startsWith("No commits between ")) throw exception;
+						continue;
+					}
 					log.info(String.format("Opened %1$s", pr.getHtmlUrl()));
 				} else {
 					pr = HCollection.getOne(pullRequests);
