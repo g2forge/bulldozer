@@ -63,7 +63,7 @@ public class CreatePRs implements IConstructorCommand {
 	protected final String branch;
 
 	protected final String title;
-	
+
 	protected final boolean allowDirty = new PropertyStringInput("bulldozer.allowdirty").map(Boolean::valueOf).fallback(NullableOptional.of(false)).get();
 
 	@Override
@@ -159,7 +159,7 @@ public class CreatePRs implements IConstructorCommand {
 								final String version = space >= 0 ? m.getTitle().substring(0, space) : m.getTitle();
 								return version.equals(projectVersion);
 							}).collect(Collectors.toList()));
-						} catch (NoSuchElementException e) {
+						} catch (IllegalArgumentException | NoSuchElementException e) {
 							throw new IllegalStateException(String.format("Could not find milestone %1$s for %2$s, options are: %3$s", projectVersion, pr.getHtmlUrl(), milestones.stream().map(GHMilestone::getTitle).collect(Collectors.joining(", "))), e);
 						}
 						repository.getIssue(pr.getNumber()).setMilestone(milestone);
