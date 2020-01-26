@@ -30,7 +30,7 @@ public interface IMaven extends ICommandInterface {
 				final Collection<String> includes = (Collection<String>) value;
 				stream = includes.stream();
 			}
-			final Named named = argument.getMetadata().getMetadata(Named.class);
+			final Named named = argument.getMetadata().get(Named.class);
 			return HCollection.asList((named == null ? "" : named.value()) + stream.collect(Collectors.joining(",")));
 		}
 	}
