@@ -215,32 +215,33 @@ public class Release implements IConstructorCommand {
 
 			// Prepare all the releases
 			for (String name : order) {
-				log.info("Preparing {}", name);
 				final ReleaseProject project = getContext().getProjects().get(name);
 				final Git git = project.getGit();
-
+				final ReleaseProperties releaseProperties = project.predictReleaseProperties();
+				
 				Phase phase = project.getPhase();
 				if (Phase.Prepared.compareTo(phase) > 0) {
+					log.info("Preparing {} {}", name, releaseProperties.getRelease());
 					// Create and switch to the release branch if needed
 					switchToBranch(git);
 					// Commit any changes from a past prepare
 					commitUpstreamReversion(git);
 
-					{ // Prepare the project (stream stdio to the console)
-						final ReleaseProperties releaseProperties = project.predictReleaseProperties();
-						getContext().getMaven().releasePrepare(project.getDirectory(), releaseProperties.getTag(), releaseProperties.getRelease(), releaseProperties.getDevelopment());
-					}
+					// Prepare the project (stream stdio to the console)
+					getContext().getMaven().releasePrepare(project.getDirectory(), releaseProperties.getTag(), releaseProperties.getRelease(), releaseProperties.getDevelopment());
 					phase = project.updatePhase(Phase.Prepared);
 				}
+				log.info("Prepared {} {}", name, releaseProperties.getRelease());
 
 				if (Phase.InstalledRelease.compareTo(phase) > 0) {
+					log.info("Installing release {} {}", name, releaseProperties.getRelease());
 					// Check out the recent tag using jgit
 					project.checkoutTag(project.getReleaseProperties().getTag());
 					// Maven install (stream stdio to the console) the newly created release version
 					getContext().getMaven().install(project.getDirectory());
 
 					// Update everyone who consumes this project (including the private consumers!) to the new version (and commit)
-					log.info("Updating downstream {}", name);
+					log.info("Updating downstreams {} {}", name, releaseProperties.getRelease());
 					for (BulldozerProject downstream : getContext().getProjects().values()) {
 						// Skip ourselves & projects that don't depend on us
 						if ((downstream == project) || !downstream.getDependencies().getTransitive().keySet().contains(name)) continue;
@@ -251,14 +252,15 @@ public class Release implements IConstructorCommand {
 
 					phase = project.updatePhase(Phase.InstalledRelease);
 				}
+				log.info("Installed release {} {}", name, releaseProperties.getRelease());
 			}
 
 			// Perform the releases
 			for (String name : order) {
-				log.info("Releasing {}", name);
 				final ReleaseProject project = getContext().getProjects().get(name);
 
 				if (Phase.Released.compareTo(project.getPhase()) > 0) {
+					log.info("Releasing {}", name);
 					final Git git = project.getGit();
 
 					// Check out the branch head
@@ -268,15 +270,16 @@ public class Release implements IConstructorCommand {
 
 					project.updatePhase(Phase.Released);
 				}
+				log.info("Released {}", name);
 			}
 
 			// Restarting development
 			for (String name : order) {
-				log.info("Restarting development of {}", name);
 				final ReleaseProject project = getContext().getProjects().get(name);
 				Phase phase = project.getPhase();
 
 				if (Phase.InstalledDevelopment.compareTo(phase) > 0) {
+					log.info("Restarting development of {}", name);
 					// Check out the branch head
 					project.getGit().checkout().setCreateBranch(false).setName(getBranch()).call();
 					// Maven install (stream stdio to the console) the new development versions
@@ -293,6 +296,7 @@ public class Release implements IConstructorCommand {
 
 					phase = project.updatePhase(Phase.InstalledDevelopment);
 				}
+				log.info("Restarted development of {}", name);
 			}
 
 			// Commit anything dirty, since those are the things with version updates
@@ -307,11 +311,11 @@ public class Release implements IConstructorCommand {
 			final Path repository = Paths.get(getContext().getMaven().evaluate(getContext().getRoot(), "settings.localRepository"));
 			// Cleanup
 			for (String name : order) {
-				log.info("Cleaning up temporary release install of {}", name);
 				final ReleaseProject project = getContext().getProjects().get(name);
 				Phase phase = project.getPhase();
 
 				if (Phase.DeletedRelease.compareTo(phase) > 0) {
+					log.info("Cleaning up temporary release install of {}", name);
 					final String releaseVersion = Version.parse(project.getVersion()).toReleaseVersion().toString();
 					// Remove the maven temporary install of the new release version
 					Path current = repository;
@@ -323,6 +327,7 @@ public class Release implements IConstructorCommand {
 					}
 					phase = project.updatePhase(Phase.DeletedRelease);
 				}
+				log.info("Cleaned up temporary release install of {}", name);
 			}
 		}
 		return SUCCESS;
