@@ -18,8 +18,10 @@ import com.g2forge.alexandria.command.IConstructorCommand;
 import com.g2forge.alexandria.command.IStandardCommand;
 import com.g2forge.alexandria.command.exit.IExit;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
+import com.g2forge.alexandria.java.fluent.optional.NullableOptional;
 import com.g2forge.alexandria.log.HLog;
 import com.g2forge.alexandria.wizard.CommandLineStringInput;
+import com.g2forge.alexandria.wizard.PropertyStringInput;
 import com.g2forge.alexandria.wizard.UserStringInput;
 import com.g2forge.bulldozer.build.model.BulldozerProject;
 import com.g2forge.bulldozer.build.model.Context;
@@ -44,12 +46,14 @@ public class CleanupPRs implements IConstructorCommand {
 	protected final Context<BulldozerProject> context;
 
 	protected final String branch;
+	
+	protected final boolean allowDirty = new PropertyStringInput("bulldozer.allowdirty").map(Boolean::valueOf).fallback(NullableOptional.of(false)).get();
 
 	@Override
 	public IExit invoke() throws Throwable {
 		HLog.getLogControl().setLogLevel(Level.INFO);
 		// Fail if any repositories are dirty
-		getContext().failIfDirty();
+		if (!allowDirty) getContext().failIfDirty();
 
 		// Find the projects which have the relevant branch
 		final List<String> projects = getContext().getProjects().values().stream().filter(p -> HGit.isBranch(p.getGit(), getBranch())).map(BulldozerProject::getName).collect(Collectors.toList());
