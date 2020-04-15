@@ -1,7 +1,7 @@
 package com.g2forge.bulldozer.build;
 
-import com.g2forge.alexandria.command.IStandardCommand;
-import com.g2forge.alexandria.command.IStructuredCommand;
+import com.g2forge.alexandria.command.command.IStandardCommand;
+import com.g2forge.alexandria.command.command.IStructuredCommand;
 
 public class BulldozerBuild implements IStructuredCommand {
 	public static void main(String[] args) throws Throwable {
