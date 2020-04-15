@@ -16,8 +16,8 @@ import java.util.stream.Collectors;
 
 import org.slf4j.event.Level;
 
-import com.g2forge.alexandria.command.IConstructorCommand;
-import com.g2forge.alexandria.command.IStandardCommand;
+import com.g2forge.alexandria.command.command.IConstructorCommand;
+import com.g2forge.alexandria.command.command.IStandardCommand;
 import com.g2forge.alexandria.command.exit.IExit;
 import com.g2forge.alexandria.log.HLog;
 import com.g2forge.bulldozer.build.model.BulldozerProject;

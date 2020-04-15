@@ -56,8 +56,8 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import com.g2forge.alexandria.command.IConstructorCommand;
-import com.g2forge.alexandria.command.IStandardCommand;
+import com.g2forge.alexandria.command.command.IConstructorCommand;
+import com.g2forge.alexandria.command.command.IStandardCommand;
 import com.g2forge.alexandria.command.exit.IExit;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.function.IFunction1;
