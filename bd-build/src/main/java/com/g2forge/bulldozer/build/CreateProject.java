@@ -91,6 +91,7 @@ import com.g2forge.enigma.document.convert.md.MDRenderer;
 import com.g2forge.gearbox.git.GitConfig;
 import com.g2forge.gearbox.git.GitIgnore;
 import com.g2forge.gearbox.git.HGit;
+import com.g2forge.gearbox.github.actions.HGHActions;
 
 import lombok.Data;
 import lombok.Getter;
@@ -404,6 +405,14 @@ public class CreateProject implements IConstructorCommand {
 			new GitIgnore(new ArrayList<>(ignores)).store(rootDirectory);
 
 			commit(rootGit, getIssue() + " Added " + create.getName(), HProject.POM, Constants.GITIGNORE_FILENAME);
+		}
+
+		{ // Set up github actions
+			final String message = "Setting up github action for Java CI with Maven";
+			log.info(message);
+			final String filename = ".github/workflows/maven.yml";
+			HGHActions.getMapper().writeValue(rootDirectory.resolve(filename).toFile(), HGHActions.createMavenWorkflow());
+			commit(rootGit, getIssue() + " " + message, filename);
 		}
 
 		// Note that we do not push the branch or open PRs, there is another command for that
