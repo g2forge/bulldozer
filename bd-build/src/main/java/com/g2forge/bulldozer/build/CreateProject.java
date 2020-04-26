@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -410,8 +411,13 @@ public class CreateProject implements IConstructorCommand {
 		{ // Set up github actions
 			final String message = "Setting up github action for Java CI with Maven";
 			log.info(message);
+			
+			final Set<String> dependencies = new LinkedHashSet<>();
+			if (create.getParent() != null) dependencies.add(create.getParent());
+			dependencies.addAll(create.getDependencies());
+			
 			final String filename = ".github/workflows/maven.yml";
-			HGHActions.getMapper().writeValue(rootDirectory.resolve(filename).toFile(), HGHActions.createMavenWorkflow());
+			HGHActions.getMapper().writeValue(rootDirectory.resolve(filename).toFile(), HGHActions.createMavenWorkflow(repositoryName, dependencies));
 			commit(rootGit, getIssue() + " " + message, filename);
 		}
 
