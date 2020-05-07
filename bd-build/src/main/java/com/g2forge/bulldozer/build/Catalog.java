@@ -139,7 +139,20 @@ public class Catalog implements IConstructorCommand {
 			final Block input = WikitextParser.getMarkdown().parse(readme);
 
 			final List<IBlock> contents = new ArrayList<>(input.getContents());
-			contents.set(1, Section.builder().title(new Text("Projects")).body(docBuilder.build()).build());
+			final Section projectsSection = Section.builder().title(new Text("Projects")).body(docBuilder.build()).build();
+			int i = 0;
+			for (; i < contents.size(); i++) {
+				final IBlock block = contents.get(i);
+				if (!(block instanceof Section)) continue;
+				final Section section = (Section) block;
+				if (!(section.getTitle() instanceof Text)) continue;
+				if (!"Projects".equals(((Text) section.getTitle()).getText())) continue;
+
+				contents.set(i, projectsSection);
+				break;
+			}
+			if (i >= contents.size()) contents.add(projectsSection);
+
 			final Block output = Block.builder().type(Block.Type.Document).contents(contents).build();
 			try (final BufferedWriter writer = Files.newBufferedWriter(readme)) {
 				writer.write(new MDRenderer().render(output));
