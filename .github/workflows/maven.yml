@@ -38,6 +38,14 @@ jobs:
     - name: Build Gearbox
       working-directory: ./gearbox
       run: mvn -B install --file pom.xml -P release -DskipTests -Dgpg.skip
+    - name: Checkout Enigma
+      uses: actions/checkout@v2
+      with:
+        repository: g2forge/enigma
+        path: enigma
+    - name: Build Enigma
+      working-directory: ./enigma
+      run: mvn -B install --file pom.xml -P release -DskipTests -Dgpg.skip
     - name: Checkout
       uses: actions/checkout@v2
       with:
