@@ -24,12 +24,14 @@ import com.g2forge.bulldozer.build.model.BulldozerProject;
 import com.g2forge.bulldozer.build.model.Context;
 import com.g2forge.bulldozer.build.model.maven.MavenProject;
 import com.g2forge.bulldozer.build.model.maven.MavenProject.Protection;
+import com.g2forge.enigma.diagram.plantuml.convert.PUMLRenderer;
 import com.g2forge.enigma.diagram.plantuml.model.PUMLContent;
-import com.g2forge.enigma.diagram.plantuml.model.PUMLControl;
 import com.g2forge.enigma.diagram.plantuml.model.klass.PUMLClass;
 import com.g2forge.enigma.diagram.plantuml.model.klass.PUMLClassDiagram;
-import com.g2forge.enigma.diagram.plantuml.model.klass.PUMLClassName;
 import com.g2forge.enigma.diagram.plantuml.model.klass.PUMLRelation;
+import com.g2forge.enigma.diagram.plantuml.model.style.PUMLControl;
+import com.g2forge.enigma.diagram.plantuml.model.style.StringPUMLColor;
+import com.g2forge.enigma.diagram.plantuml.model.style.TransparentPUMLColor;
 import com.g2forge.enigma.document.Block;
 import com.g2forge.enigma.document.DocList;
 import com.g2forge.enigma.document.IBlock;
@@ -111,17 +113,16 @@ public class Catalog implements IConstructorCommand {
 					for (String name : inclusive) {
 						final BulldozerProject project = projects.get(name);
 
-						final PUMLClassName umlName = new PUMLClassName(project.getName());
-						dependencies.uclass(PUMLClass.builder().name(umlName).stereotype("(P,LightBlue)").build());
-						project.getDependencies().getImmediate().keySet().stream().filter(inclusive::contains).forEach(d -> dependencies.relation(PUMLRelation.builder().left(new PUMLClassName(d)).type(PUMLRelation.Type.Arrow).right(umlName).build()));
+						dependencies.uclass(PUMLClass.builder().name(project.getName()).stereotypeSpot('P', new StringPUMLColor("LightBlue")).build());
+						project.getDependencies().getImmediate().keySet().stream().filter(inclusive::contains).forEach(d -> dependencies.relation(PUMLRelation.builder().left(d).type(PUMLRelation.Type.Arrow).right(project.getName()).back(true).vertical(true).build()));
 					}
 
 					// Render the diagram
 					final Path images = getContext().getRoot().resolve("images");
 					Files.createDirectories(images);
 					final PUMLContent.PUMLContentBuilder builder = PUMLContent.builder().diagram(dependencies.build());
-					builder.control(PUMLControl.builder().shadowing(false).dpi(150).background(PUMLControl.Color.Transparent).build());
-					final Path png = builder.build().toFile(images.resolve("dependencies_" + protection.name().toLowerCase()), FileFormat.PNG);
+					builder.control(PUMLControl.builder().shadowing(false).dpi(150).background(TransparentPUMLColor.create()).build());
+					final Path png = new PUMLRenderer().toFile(builder.build(), images.resolve("dependencies_" + protection.name().toLowerCase()), FileFormat.PNG);
 
 					// Add the diagram into the MD
 					final Block.BlockBuilder block = Block.builder().type(Block.Type.Block);
