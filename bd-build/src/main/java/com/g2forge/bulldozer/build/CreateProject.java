@@ -410,9 +410,11 @@ public class CreateProject implements IConstructorCommand {
 		{ // Set up github actions
 			final String message = "Setting up github action for Java CI with Maven";
 			log.info(message);
-			final String filename = ".github/workflows/maven.yml";
-			HGHActions.getMapper().writeValue(rootDirectory.resolve(filename).toFile(), HGHActions.createMavenWorkflow());
-			commit(rootGit, getIssue() + " " + message, filename);
+			final String relative = ".github/workflows/maven.yml";
+			final Path workflow = directory.resolve(relative);
+			Files.createDirectories(workflow.getParent());
+			HGHActions.getMapper().writeValue(workflow.toFile(), HGHActions.createMavenWorkflow());
+			commit(rootGit, getIssue() + " " + message, relative);
 		}
 
 		// Note that we do not push the branch or open PRs, there is another command for that
