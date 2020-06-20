@@ -323,7 +323,7 @@ public class Release implements IConstructorCommand {
 						current = current.resolve(component);
 					}
 					for (String artifact : HCollection.concatenate(HCollection.asList(name), project.getPom().getModules())) {
-						HFile.delete(current.resolve(artifact).resolve(releaseVersion));
+						HFile.delete(current.resolve(artifact).resolve(releaseVersion), true);
 					}
 					phase = project.updatePhase(Phase.DeletedRelease);
 				}
