@@ -83,12 +83,12 @@ import com.g2forge.bulldozer.build.model.BulldozerCreateProject;
 import com.g2forge.bulldozer.build.model.BulldozerProject;
 import com.g2forge.bulldozer.build.model.Context;
 import com.g2forge.bulldozer.build.model.maven.MavenProject;
-import com.g2forge.enigma.document.Block;
-import com.g2forge.enigma.document.IBlock;
-import com.g2forge.enigma.document.Section;
-import com.g2forge.enigma.document.Text;
 import com.g2forge.enigma.document.convert.WikitextParser;
 import com.g2forge.enigma.document.convert.md.MDRenderer;
+import com.g2forge.enigma.document.model.Block;
+import com.g2forge.enigma.document.model.IBlock;
+import com.g2forge.enigma.document.model.Section;
+import com.g2forge.enigma.document.model.Text;
 import com.g2forge.gearbox.git.GitConfig;
 import com.g2forge.gearbox.git.GitIgnore;
 import com.g2forge.gearbox.git.HGit;
@@ -282,7 +282,7 @@ public class CreateProject implements IConstructorCommand {
 		final Path directory = rootDirectory.resolve(repositoryName);
 		if (!Files.exists(directory)) {
 			log.info(String.format("Cloning %1$s/%2$s into %3$s", organization.getLogin(), repositoryName, directory));
-			Git.cloneRepository().setTransportConfigCallback(getContext().getTransportConfig()).setDirectory(directory.toFile()).setURI(repository.getSshUrl()).call();
+			Git.cloneRepository().setTransportConfigCallback(getContext().getTransportConfig()).setDirectory(directory.toFile()).setURI(repository.getSshUrl()).call().close();
 			log.info(String.format("Cloned %1$s/%2$s into %3$s", organization.getLogin(), repositoryName, directory));
 		}
 
@@ -416,9 +416,11 @@ public class CreateProject implements IConstructorCommand {
 			if (create.getParent() != null) dependencies.add(create.getParent());
 			dependencies.addAll(create.getDependencies());
 			
-			final String filename = ".github/workflows/maven.yml";
-			HGHActions.getMapper().writeValue(rootDirectory.resolve(filename).toFile(), HGHActions.createMavenWorkflow(repositoryName, dependencies));
-			commit(rootGit, getIssue() + " " + message, filename);
+			final String relative = ".github/workflows/maven.yml";
+			final Path workflow = directory.resolve(relative);
+			Files.createDirectories(workflow.getParent());
+			HGHActions.getMapper().writeValue(workflow.toFile(), HGHActions.createMavenWorkflow(repositoryName, dependencies));
+			commit(rootGit, getIssue() + " " + message, relative);
 		}
 
 		// Note that we do not push the branch or open PRs, there is another command for that
