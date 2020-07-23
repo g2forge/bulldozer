@@ -52,6 +52,7 @@ import lombok.extern.slf4j.Slf4j;
 public class Release implements IConstructorCommand {
 	public enum Phase {
 		Initial,
+		Verified,
 		Prepared,
 		InstalledRelease,
 		Released,
@@ -213,12 +214,27 @@ public class Release implements IConstructorCommand {
 				if (!tagged.isEmpty()) throw new IllegalStateException(String.format("One or more projects were already tagged (%1$s), please remove those tags and try again!", tagged.stream().map(BulldozerProject::getName).collect(Collectors.joining(", "))));
 			}
 
+			// Verify all the releases
+			for (String name : order) {
+				final ReleaseProject project = getContext().getProjects().get(name);
+
+				Phase phase = project.getPhase();
+				if (Phase.Verified.compareTo(phase) > 0) {
+					log.info("Verifying {} {}", name, project.getVersion());
+
+					// Prepare the project (stream stdio to the console)
+					getContext().getMaven().verify(project.getDirectory());
+					phase = project.updatePhase(Phase.Verified);
+				}
+				log.info("Verified {} {}", name, project.getVersion());
+			}
+
 			// Prepare all the releases
 			for (String name : order) {
 				final ReleaseProject project = getContext().getProjects().get(name);
 				final Git git = project.getGit();
 				final ReleaseProperties releaseProperties = project.predictReleaseProperties();
-				
+
 				Phase phase = project.getPhase();
 				if (Phase.Prepared.compareTo(phase) > 0) {
 					log.info("Preparing {} {}", name, releaseProperties.getRelease());

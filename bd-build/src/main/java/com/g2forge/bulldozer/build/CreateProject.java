@@ -110,6 +110,7 @@ public class CreateProject implements IConstructorCommand {
 		Settings("/.settings/"),
 		Target("/target/"),
 		BulldozerTemp("/" + com.g2forge.bulldozer.build.model.BulldozerTemp.BULLDOZER_TEMP),
+		BulldozerState("/" + Release.State.BULLDOZER_STATE),
 		Factorypath("/.factorypath");
 
 		public static GitIgnore createIgnore() {
