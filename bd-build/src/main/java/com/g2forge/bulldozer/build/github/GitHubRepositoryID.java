@@ -11,7 +11,7 @@ import lombok.Data;
 @Builder
 @AllArgsConstructor
 public class GitHubRepositoryID {
-	protected static final Pattern GITHUB_URL_SSH = Pattern.compile("git@[^:]+:([^/]+)/([^.]+)\\.git");
+	protected static final Pattern GITHUB_URL_SSH = Pattern.compile("git@[^:]+:([^/]+)/(.+)\\.git");
 
 	public static GitHubRepositoryID fromURL(String url) {
 		final Matcher matcher = GITHUB_URL_SSH.matcher(url);
