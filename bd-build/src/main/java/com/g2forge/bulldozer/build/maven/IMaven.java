@@ -79,4 +79,7 @@ public interface IMaven extends ICommandInterface {
 
 	@Command({ "mvn" })
 	public void updateVersions(@Working Path path, @ArgumentRenderer(UpdateParentArgumentRenderer.class) boolean parent, @ArgumentRenderer(SnapshotArgumentRenderer.class) @Constant("versions:update-properties") boolean snapshot, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-P") List<String> profiles, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-Dincludes=") List<String> includes);
+
+	@Command({ "mvn", "clean", "verify" })
+	public void verify(@Working Path path);
 }
