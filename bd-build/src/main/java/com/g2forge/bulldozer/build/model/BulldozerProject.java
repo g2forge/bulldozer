@@ -109,7 +109,8 @@ public class BulldozerProject implements ICloseable {
 			final String name = getName();
 			log.info("Loading dependencies for {}", name);
 			// Run maven dependencies and filter the output down to usable information
-			final Map<String, List<ITuple2G_<Descriptor, Boolean>>> grouped = getContext().getMaven().dependencyTree(getDirectory(), true, groupToProject.keySet().stream().map(g -> g + ":*").collect(Collectors.toList()))/*.peek(System.out::println)*/.filter(line -> {
+			final List<String> dependencyTree = getContext().getMaven().dependencyTree(getDirectory(), true, groupToProject.keySet().stream().map(g -> g + ":*").collect(Collectors.toList())).collect(Collectors.toList());
+			final Map<String, List<ITuple2G_<Descriptor, Boolean>>> grouped = dependencyTree.stream().filter(line -> {
 				if (!line.startsWith("[INFO]")) return false;
 				for (BulldozerProject publicProject : nameToProject.values()) {
 					if (line.contains("- " + publicProject.getGroup())) return true;
@@ -124,7 +125,7 @@ public class BulldozerProject implements ICloseable {
 
 				final Set<String> versions = tuples.stream().map(ITuple1G_::get0).map(Descriptor::getVersion).collect(Collectors.toSet());
 				final String version = getSingleVersions(versions);
-				if (version == null) throw new IllegalArgumentException(String.format("%3$s depends on multiple versions of the project \"%1$s\": %2$s", group, versions, name));
+				if (version == null) throw new IllegalArgumentException(String.format("%3$s depends on multiple versions of the project \"%1$s\": %2$s\n\t%4$s", group, versions, name, dependencyTree.stream().collect(Collectors.joining("\n\t"))));
 				final String dependency = groupToProject.get(group).getName();
 
 				// If any of the dependencies are immediate, then the project dependency is
