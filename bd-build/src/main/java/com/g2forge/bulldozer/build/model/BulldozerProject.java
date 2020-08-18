@@ -14,7 +14,8 @@ import java.util.stream.Collectors;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.Constants;
 
-import com.g2forge.alexandria.java.adt.identity.MappedComparator;
+import com.g2forge.alexandria.java.adt.compare.ComparableComparator;
+import com.g2forge.alexandria.java.adt.compare.MappedComparator;
 import com.g2forge.alexandria.java.adt.tuple.ITuple1G_;
 import com.g2forge.alexandria.java.adt.tuple.ITuple2G_;
 import com.g2forge.alexandria.java.adt.tuple.implementations.Tuple2G_I;
@@ -60,7 +61,7 @@ public class BulldozerProject implements ICloseable {
 		if (versions.size() == 1) return HCollection.getOne(versions);
 		if (versions.size() == 2) {
 			final List<String> list = new ArrayList<>(versions);
-			Collections.sort(list, new MappedComparator<>(String::length));
+			Collections.sort(list, new MappedComparator<>(String::length, ComparableComparator.create()));
 			if (list.get(1).equals(list.get(0) + IMaven.SNAPSHOT)) return list.get(1);
 		}
 		return null;
