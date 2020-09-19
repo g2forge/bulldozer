@@ -62,7 +62,7 @@ public interface IMaven extends ICommandInterface {
 	public Stream<String> dependencyTree(@Working Path path, @Flag("-Dverbose") boolean verbose, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-Dincludes=") String... includes);
 
 	public default String evaluate(Path path, String expression) {
-		return HStream.findOne(evaluateRaw(path, expression).filter(line -> !(line.startsWith("[INFO]") || line.startsWith("[WARNING]") || line.startsWith("[ERROR]"))));
+		return HStream.findOne(evaluateRaw(path, expression).filter(line -> !(line.startsWith("[INFO]") || line.startsWith("[WARNING]") || line.startsWith("[ERROR]") || line.startsWith("Downloading from "))));
 	}
 
 	@Command({ "mvn", "help:evaluate" })
