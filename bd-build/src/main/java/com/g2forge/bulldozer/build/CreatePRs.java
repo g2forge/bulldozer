@@ -169,6 +169,6 @@ public class CreatePRs implements IConstructorCommand {
 				if (changed) log.info("Set labels, assignee & milestone");
 			}
 		}
-		return SUCCESS;
+		return IStandardCommand.SUCCESS;
 	}
 }

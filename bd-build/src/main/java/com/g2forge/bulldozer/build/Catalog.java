@@ -159,6 +159,6 @@ public class Catalog implements IConstructorCommand {
 				writer.write(new MDRenderer().render(output));
 			}
 		}
-		return SUCCESS;
+		return IStandardCommand.SUCCESS;
 	}
 }

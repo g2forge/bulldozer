@@ -109,6 +109,6 @@ public class CleanupPRs implements IConstructorCommand {
 
 			log.info("{} is complete", name);
 		}
-		return SUCCESS;
+		return IStandardCommand.SUCCESS;
 	}
 }
