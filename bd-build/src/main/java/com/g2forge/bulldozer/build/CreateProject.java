@@ -426,6 +426,6 @@ public class CreateProject implements IConstructorCommand {
 
 		// Note that we do not push the branch or open PRs, there is another command for that
 		log.info("Success!");
-		return SUCCESS;
+		return IStandardCommand.SUCCESS;
 	}
 }

@@ -346,7 +346,7 @@ public class Release implements IConstructorCommand {
 				log.info("Cleaned up temporary release install of {}", name);
 			}
 		}
-		return SUCCESS;
+		return IStandardCommand.SUCCESS;
 	}
 
 	protected void switchToBranch(final Git git) throws IOException, GitAPIException {
