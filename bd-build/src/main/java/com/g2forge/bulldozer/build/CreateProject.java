@@ -148,8 +148,8 @@ public class CreateProject implements IConstructorCommand {
 		for (String file : files) {
 			status.addPath(file);
 		}
-
 		final Status result = status.call();
+
 		final List<String> collection = HCollection.asList(files);
 		if (!HCollection.intersection(result.getUncommittedChanges(), collection).isEmpty() || !HCollection.intersection(result.getUntracked(), collection).isEmpty()) {
 			final AddCommand add = git.add();
@@ -393,7 +393,7 @@ public class CreateProject implements IConstructorCommand {
 		}
 
 		{ // Modify the root project pom.xml file
-			log.info("Creating root POM & ignoring the repository");
+			log.info("Modifying root POM & ignoring the repository");
 			if (!HGit.isBranch(rootGit, branch)) rootGit.checkout().setCreateBranch(true).setName(branch).call();
 
 			try {
@@ -412,16 +412,16 @@ public class CreateProject implements IConstructorCommand {
 		{ // Set up github actions
 			final String message = "Setting up github action for Java CI with Maven";
 			log.info(message);
-			
+
 			final Set<String> dependencies = new LinkedHashSet<>();
 			if (create.getParent() != null) dependencies.add(create.getParent());
 			dependencies.addAll(create.getDependencies());
-			
+
 			final String relative = ".github/workflows/maven.yml";
 			final Path workflow = directory.resolve(relative);
 			Files.createDirectories(workflow.getParent());
 			HGHActions.getMapper().writeValue(workflow.toFile(), HGHActions.createMavenWorkflow(repositoryName, dependencies));
-			commit(rootGit, getIssue() + " " + message, relative);
+			commit(git, getIssue() + " " + message, relative);
 		}
 
 		// Note that we do not push the branch or open PRs, there is another command for that
