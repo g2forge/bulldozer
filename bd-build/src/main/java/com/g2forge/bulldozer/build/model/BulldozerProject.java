@@ -72,10 +72,10 @@ public class BulldozerProject implements ICloseable {
 	protected final MavenProject project;
 
 	@Getter(lazy = true)
-	private final String group = loadTemp(BulldozerTemp::getGroup, BulldozerTemp::setGroup, () -> getContext().getMaven().evaluate(getDirectory(), "project.groupId"));
+	private final String group = computeGroup();
 
 	@Getter(lazy = true)
-	private final String version = loadTemp(BulldozerTemp::getVersion, BulldozerTemp::setVersion, () -> getContext().getMaven().evaluate(getDirectory(), "project.version"));
+	private final String version = computeVersion();
 
 	@Getter(lazy = true)
 	private final Path directory = computeDirectory();
@@ -150,6 +150,10 @@ public class BulldozerProject implements ICloseable {
 		return retVal;
 	}
 
+	protected String computeGroup() {
+		return loadTemp(BulldozerTemp::getGroup, BulldozerTemp::setGroup, () -> getContext().getMaven().evaluate(getDirectory(), "project.groupId"));
+	}
+
 	protected String computeParentGroup() {
 		final String group = getGroup();
 		final IMaven maven = getContext().getMaven();
@@ -169,6 +173,10 @@ public class BulldozerProject implements ICloseable {
 		} catch (IOException e) {
 			throw new RuntimeIOException(String.format("Failed to read %1$s for %2$s!", HProject.POM, getProject().getRelative()), e);
 		}
+	}
+
+	protected String computeVersion() {
+		return loadTemp(BulldozerTemp::getVersion, BulldozerTemp::setVersion, () -> getContext().getMaven().evaluate(getDirectory(), "project.version"));
 	}
 
 	public String getArtifactId() {
