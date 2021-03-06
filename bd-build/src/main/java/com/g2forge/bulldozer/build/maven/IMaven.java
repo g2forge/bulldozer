@@ -13,6 +13,7 @@ import com.g2forge.gearbox.command.converter.dumb.ArgumentRenderer;
 import com.g2forge.gearbox.command.converter.dumb.Command;
 import com.g2forge.gearbox.command.converter.dumb.Constant;
 import com.g2forge.gearbox.command.converter.dumb.Flag;
+import com.g2forge.gearbox.command.converter.dumb.HDumbCommandConverter;
 import com.g2forge.gearbox.command.converter.dumb.IArgumentRenderer;
 import com.g2forge.gearbox.command.converter.dumb.Named;
 import com.g2forge.gearbox.command.converter.dumb.Working;
@@ -30,8 +31,7 @@ public interface IMaven extends ICommandInterface {
 				final Collection<String> includes = (Collection<String>) value;
 				stream = includes.stream();
 			}
-			final Named named = argument.getMetadata().get(Named.class);
-			return HCollection.asList((named == null ? "" : named.value()) + stream.collect(Collectors.joining(",")));
+			return HDumbCommandConverter.computeString(argument, stream.collect(Collectors.joining(",")));
 		}
 	}
 
@@ -75,7 +75,7 @@ public interface IMaven extends ICommandInterface {
 	public void releasePerform(@Working Path path);
 
 	@Command({ "mvn", "--batch-mode", "release:prepare", "-Prelease" })
-	public void releasePrepare(@Working Path path, @Named("-Dtag") String tag, @Named("-DreleaseVersion") String release, @Named("-DdevelopmentVersion=") String development);
+	public void releasePrepare(@Working Path path, @Named("-Dtag=") String tag, @Named("-DreleaseVersion=") String release, @Named("-DdevelopmentVersion=") String development);
 
 	@Command({ "mvn" })
 	public void updateVersions(@Working Path path, @ArgumentRenderer(UpdateParentArgumentRenderer.class) boolean parent, @ArgumentRenderer(SnapshotArgumentRenderer.class) @Constant("versions:update-properties") boolean snapshot, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-P") List<String> profiles, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-Dincludes=") List<String> includes);
