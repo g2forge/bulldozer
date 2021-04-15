@@ -5,8 +5,10 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -230,6 +232,7 @@ public class Release implements IConstructorCommand {
 			}
 
 			// Prepare all the releases
+			final Set<String> unreleasedProjectsToReinstall = new LinkedHashSet<>();
 			for (String name : order) {
 				final ReleaseProject project = getContext().getProjects().get(name);
 				final Git git = project.getGit();
@@ -261,6 +264,8 @@ public class Release implements IConstructorCommand {
 					for (BulldozerProject downstream : getContext().getProjects().values()) {
 						// Skip ourselves & projects that don't depend on us
 						if ((downstream == project) || !downstream.getDependencies().getTransitive().keySet().contains(name)) continue;
+						// Record that we're updating this project so it needs to be re-installed at the end
+						unreleasedProjectsToReinstall.add(downstream.getName());
 						// Update all the downstreams to new release versions
 						switchToBranch(downstream.getGit());
 						getContext().getMaven().updateVersions(downstream.getDirectory(), downstream.getParentGroup().equals(project.getGroup()), false, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
@@ -305,6 +310,8 @@ public class Release implements IConstructorCommand {
 					for (BulldozerProject downstream : getContext().getProjects().values()) {
 						// Skip ourselves & projects that don't depend on us
 						if ((downstream == project) || !downstream.getDependencies().getTransitive().keySet().contains(name)) continue;
+						// Record that we're updating this project so it needs to be re-installed at the end
+						unreleasedProjectsToReinstall.add(downstream.getName());
 						// Update all the downstreams to new snapshot versions
 						switchToBranch(downstream.getGit());
 						getContext().getMaven().updateVersions(downstream.getDirectory(), downstream.getParentGroup().equals(project.getGroup()), true, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
@@ -321,6 +328,15 @@ public class Release implements IConstructorCommand {
 				// Commit anything dirty, since those are the things with version updates
 				switchToBranch(project.getGit());
 				commitUpstreamReversion(project.getGit());
+			}
+
+			// Re-install all the downstream projects that have had updated upstreams
+			log.info("Reinstalling downstream projects");
+			final List<String> unreleasedInstallOrder = HGraph.toposort(unreleasedProjectsToReinstall, p -> getContext().getNameToProject().get(p).getDependencies().getTransitive().keySet(), false);
+			for (String name : unreleasedInstallOrder) {
+				final BulldozerProject project = getContext().getNameToProject().get(name);
+				// Maven install (stream stdio to the console) the downstream, since it was updated
+				getContext().getMaven().install(project.getDirectory());
 			}
 
 			// Find the local maven repository

@@ -92,12 +92,12 @@ public class CreatePRs implements IConstructorCommand {
 
 			{ // Open the PR
 				final GitHubRepositoryID fork = GitHubRepositoryID.fromURL(new GitConfig(project.getGit()).getRemote(remote).getURL());
-				final String base = Constants.MASTER;
 				final String head = String.format("%1$s:%2$s", fork.getOrganization(), getBranch());
 
 				log.info(String.format("Opening pull request for %1$s", project.getName()));
 
 				final GHRepository repository = getContext().getGithub().getRepository(project.getGithubMaster().toGitHubName());
+				final String base = repository.getDefaultBranch();
 				final List<GHPullRequest> pullRequests = StreamSupport.stream(repository.queryPullRequests().head(head).base(base).list().spliterator(), false).collect(Collectors.toList());
 				final GHPullRequest pr;
 				if (pullRequests.size() > 1) throw new IllegalStateException(String.format("Found multiple pull requests: %1$s", pullRequests.stream().map(GHPullRequest::getHtmlUrl).map(URL::toString).collect(Collectors.joining(", "))));
@@ -130,6 +130,7 @@ public class CreatePRs implements IConstructorCommand {
 						final Error actual = HCollection.getOne(error.getErrors());
 						if (!"PullRequest".equals(actual.getResource())) throw exception;
 						if ((actual.getMessage() == null) || !actual.getMessage().startsWith("No commits between ")) throw exception;
+						log.info(String.format("Skipping this PR, since there are no commits between the head and base branches"));
 						continue;
 					}
 					log.info(String.format("Opened %1$s", pr.getHtmlUrl()));
