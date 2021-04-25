@@ -20,6 +20,8 @@ import com.g2forge.gearbox.command.converter.dumb.Working;
 import com.g2forge.gearbox.command.proxy.method.ICommandInterface;
 
 public interface IMaven extends ICommandInterface {
+	public static final String PROFILE_RELEASE = "release";
+
 	public static class CSVArgumentRenderer implements IArgumentRenderer<Object> {
 		@Override
 		public List<String> render(IMethodArgument<Object> argument) {
@@ -68,13 +70,16 @@ public interface IMaven extends ICommandInterface {
 	@Command({ "mvn", "help:evaluate" })
 	public Stream<String> evaluateRaw(@Working Path path, @Named("-Dexpression=") String expression);
 
-	@Command({ "mvn", "clean", "install", "-Prelease" })
-	public void install(@Working Path path);
+	@Command({ "mvn", "clean", "install" })
+	public void install(@Working Path path, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-P") List<String> profiles);
+	
+	@Command({ "mvn", "clean", "install" })
+	public void install(@Working Path path, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-P") String... profiles);
 
-	@Command({ "mvn", "release:perform", "-Prelease" })
+	@Command({ "mvn", "release:perform", "-P" + PROFILE_RELEASE })
 	public void releasePerform(@Working Path path);
 
-	@Command({ "mvn", "--batch-mode", "release:prepare", "-Prelease" })
+	@Command({ "mvn", "--batch-mode", "release:prepare", "-P" + PROFILE_RELEASE })
 	public void releasePrepare(@Working Path path, @Named("-Dtag=") String tag, @Named("-DreleaseVersion=") String release, @Named("-DdevelopmentVersion=") String development);
 
 	@Command({ "mvn" })
