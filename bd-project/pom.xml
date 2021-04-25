@@ -10,13 +10,13 @@
 	<parent>
 		<groupId>com.g2forge.alexandria</groupId>
 		<artifactId>ax-project</artifactId>
-		<version>0.0.17-SNAPSHOT</version>
+		<version>0.0.18-SNAPSHOT</version>
 	</parent>
 
 	<properties>
-		<alexandria.version>0.0.17-SNAPSHOT</alexandria.version>
-		<gearbox.version>0.0.9-SNAPSHOT</gearbox.version>
-		<enigma.version>0.0.11-SNAPSHOT</enigma.version>
+		<alexandria.version>0.0.18-SNAPSHOT</alexandria.version>
+		<gearbox.version>0.0.10-SNAPSHOT</gearbox.version>
+		<enigma.version>0.0.12-SNAPSHOT</enigma.version>
 
 		<bulldozer.organization>g2forge</bulldozer.organization>
 		<bulldozer.name>Bulldozer</bulldozer.name>
