@@ -247,7 +247,7 @@ public class Release implements IConstructorCommand {
 					commitUpstreamReversion(git);
 
 					// Prepare the project (stream stdio to the console)
-					getContext().getMaven().releasePrepare(project.getDirectory(), releaseProperties.getTag(), releaseProperties.getRelease(), releaseProperties.getDevelopment());
+					getContext().getMaven().releasePrepare(project.getDirectory(), releaseProperties.getTag(), releaseProperties.getRelease(), releaseProperties.getDevelopment(), IMaven.PROFILES_RELEASE);
 					phase = project.updatePhase(Phase.Prepared);
 				}
 				log.info("Prepared {} {}", name, releaseProperties.getRelease());
@@ -257,7 +257,7 @@ public class Release implements IConstructorCommand {
 					// Check out the recent tag using jgit
 					project.checkoutTag(project.getReleaseProperties().getTag());
 					// Maven install (stream stdio to the console) the newly created release version
-					getContext().getMaven().install(project.getDirectory(), IMaven.PROFILE_RELEASE);
+					getContext().getMaven().install(project.getDirectory(), IMaven.PROFILES_RELEASE);
 
 					// Update everyone who consumes this project (including the private consumers!) to the new version (and commit)
 					log.info("Updating downstreams {} {}", name, releaseProperties.getRelease());
@@ -287,7 +287,7 @@ public class Release implements IConstructorCommand {
 					// Check out the branch head
 					git.checkout().setCreateBranch(false).setName(getBranch()).call();
 					// Perform the release
-					getContext().getMaven().releasePerform(project.getDirectory());
+					getContext().getMaven().releasePerform(project.getDirectory(), IMaven.PROFILES_RELEASE);
 
 					project.updatePhase(Phase.Released);
 				}
@@ -304,7 +304,7 @@ public class Release implements IConstructorCommand {
 					// Check out the branch head
 					project.getGit().checkout().setCreateBranch(false).setName(getBranch()).call();
 					// Maven install (stream stdio to the console) the new development versions
-					getContext().getMaven().install(project.getDirectory(), IMaven.PROFILE_RELEASE);
+					getContext().getMaven().install(project.getDirectory(), IMaven.PROFILES_RELEASE);
 
 					log.info("Updating downstream {}", name);
 					for (BulldozerProject downstream : getContext().getProjects().values()) {
