@@ -10,7 +10,11 @@ import javax.xml.bind.annotation.XmlElementWrapper;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
+import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator;
+import com.fasterxml.jackson.module.jaxb.JaxbAnnotationModule;
 import com.g2forge.bulldozer.build.maven.build.Build;
 import com.g2forge.bulldozer.build.maven.metadata.Developer;
 import com.g2forge.bulldozer.build.maven.metadata.License;
@@ -19,6 +23,7 @@ import com.g2forge.bulldozer.build.maven.metadata.SCM;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.Getter;
 import lombok.Singular;
 
 @Data
@@ -28,6 +33,17 @@ import lombok.Singular;
 @JsonInclude(Include.NON_EMPTY)
 @JacksonXmlRootElement(localName = "project")
 public class POM implements IDescriptor {
+	@Getter(lazy = true)
+	private static final XmlMapper xmlMapper = createXMLMapper();
+
+	protected static XmlMapper createXMLMapper() {
+		final XmlMapper retVal = new XmlMapper();
+		retVal.registerModule(new JaxbAnnotationModule());
+		retVal.configure(ToXmlGenerator.Feature.WRITE_XML_DECLARATION, true);
+		retVal.enable(SerializationFeature.INDENT_OUTPUT);
+		return retVal;
+	}
+
 	@XmlAttribute
 	protected final String xmlns = "http://maven.apache.org/POM/4.0.0";
 
@@ -78,9 +94,19 @@ public class POM implements IDescriptor {
 	protected final List<String> modules;
 
 	@XmlElementWrapper
+	@XmlElement(name = "pluginRepository")
+	@Singular
+	protected final List<Repository> pluginRepositories;
+
+	@XmlElementWrapper
+	@XmlElement(name = "repository")
+	@Singular
+	protected final List<Repository> repositories;
+
+	protected final Build build;
+
+	@XmlElementWrapper
 	@XmlElement(name = "profile")
 	@Singular
 	protected final List<Profile> profiles;
-
-	protected final Build build;
 }

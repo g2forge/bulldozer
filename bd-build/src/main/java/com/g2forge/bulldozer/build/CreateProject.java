@@ -72,6 +72,10 @@ import com.g2forge.bulldozer.build.input.InputLoader;
 import com.g2forge.bulldozer.build.maven.Descriptor;
 import com.g2forge.bulldozer.build.maven.POM;
 import com.g2forge.bulldozer.build.maven.Parent;
+import com.g2forge.bulldozer.build.maven.Profile;
+import com.g2forge.bulldozer.build.maven.Repository;
+import com.g2forge.bulldozer.build.maven.Repository.Policies;
+import com.g2forge.bulldozer.build.maven.Profile.ProfileBuilder;
 import com.g2forge.bulldozer.build.maven.build.Build;
 import com.g2forge.bulldozer.build.maven.build.plugin.VersionsPlugin;
 import com.g2forge.bulldozer.build.maven.build.plugin.VersionsPlugin.Configuration.ConfigurationBuilder;
@@ -197,7 +201,8 @@ public class CreateProject implements IConstructorCommand {
 		final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 		transformer.transform(new DOMSource(doc), new StreamResult(buffer));
 
-		try (final PrintStream output = new PrintStream(Files.newOutputStream(path)); final BufferedReader reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(buffer.toByteArray())))) {
+		try (final PrintStream output = new PrintStream(Files.newOutputStream(path));
+			final BufferedReader reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(buffer.toByteArray())))) {
 			while (true) {
 				final String line = reader.readLine();
 				if (line == null) break;
@@ -367,15 +372,25 @@ public class CreateProject implements IConstructorCommand {
 					pom.scm(scm.build());
 				}
 
-				final ConfigurationBuilder builder = VersionsPlugin.Configuration.builder();
-				if (create.getParent() != null) builder.property(VersionsPlugin.Property.builder().name(create.getParent() + ".version").dependency(Descriptor.builder().groupId(parentProjectParent.getGroupId()).artifactId(parentBulldozerProject.getPom().getArtifactId()).build()).build());
-				for (String dependency : create.getDependencies()) {
-					final POM dependencyPOM = getContext().getProjects().get(dependency).getPom();
-					builder.property(VersionsPlugin.Property.builder().name(dependency + ".version").dependency(Descriptor.builder().groupId(dependencyPOM.getGroupId()).artifactId(dependencyPOM.getArtifactId()).build()).build());
+				{ // Create the versions plugin configuration
+					final ConfigurationBuilder builder = VersionsPlugin.Configuration.builder();
+					if (create.getParent() != null) builder.property(VersionsPlugin.Property.builder().name(create.getParent() + ".version").dependency(Descriptor.builder().groupId(parentProjectParent.getGroupId()).artifactId(parentBulldozerProject.getPom().getArtifactId()).build()).build());
+					for (String dependency : create.getDependencies()) {
+						final POM dependencyPOM = getContext().getProjects().get(dependency).getPom();
+						builder.property(VersionsPlugin.Property.builder().name(dependency + ".version").dependency(Descriptor.builder().groupId(dependencyPOM.getGroupId()).artifactId(dependencyPOM.getArtifactId()).build()).build());
+					}
+					pom.build(Build.builder().plugin(VersionsPlugin.builder().version("2.5").configuration(builder.build()).build()).build());
 				}
-				pom.build(Build.builder().plugin(VersionsPlugin.builder().version("2.5").configuration(builder.build()).build()).build());
+
+				{ // Create the "snapshots" profile
+					final ProfileBuilder profile = Profile.builder().id("release-snapshot");
+					final Policies policies = Repository.Policies.builder().enabled(true).build();
+					profile.repository(Repository.builder().id(String.format("github-", organization.getLogin())).url(String.format("https://maven.pkg.github.com/%1$s/*", organization.getLogin())).releases(policies).snapshots(policies).build());
+					pom.profile(profile.build());
+				}
+
 				projectPOM = pom.build_();
-				getContext().getXmlMapper().writeValue(projectDirectory.resolve(HProject.POM).toFile(), projectPOM);
+				POM.getXmlMapper().writeValue(projectDirectory.resolve(HProject.POM).toFile(), projectPOM);
 			}
 
 			{ // Create the root pom
@@ -387,7 +402,7 @@ public class CreateProject implements IConstructorCommand {
 				pom.parent(Parent.builder().groupId(projectPOM.getGroupId()).artifactId(projectPOM.getArtifactId()).version(projectPOM.getVersion()).relativePath(PathSpec.UNIX.canonizePath(relativePath.resolve(HProject.POM).toString())).build());
 				pom.name(create.getName()).description(create.getDescription());
 				pom.module(PathSpec.UNIX.canonizePath(relativePath.toString()));
-				getContext().getXmlMapper().writeValue(directory.resolve(HProject.POM).toFile(), pom.build_());
+				POM.getXmlMapper().writeValue(directory.resolve(HProject.POM).toFile(), pom.build_());
 			}
 			commit(git, getIssue() + " Create pom files", HProject.POM, projectName + "/" + HProject.POM);
 		}
