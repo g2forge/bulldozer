@@ -1,4 +1,6 @@
-package com.g2forge.bulldozer.build.maven;
+package com.g2forge.bulldozer.build.maven.distribution;
+
+import javax.xml.bind.annotation.XmlRootElement;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
@@ -10,9 +12,10 @@ import lombok.Data;
 @Builder
 @AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class DistributionRepository {
+@XmlRootElement(name = "snapshotRepository")
+public class DistributionSnapshotRepository implements IDistributionRepository {
 	protected final String id;
-	
+
 	protected final String name;
 
 	protected final String url;

@@ -79,6 +79,7 @@ import com.g2forge.bulldozer.build.maven.Profile.ProfileBuilder;
 import com.g2forge.bulldozer.build.maven.build.Build;
 import com.g2forge.bulldozer.build.maven.build.plugin.VersionsPlugin;
 import com.g2forge.bulldozer.build.maven.build.plugin.VersionsPlugin.Configuration.ConfigurationBuilder;
+import com.g2forge.bulldozer.build.maven.distribution.DistributionRepository;
 import com.g2forge.bulldozer.build.maven.metadata.Developer;
 import com.g2forge.bulldozer.build.maven.metadata.License;
 import com.g2forge.bulldozer.build.maven.metadata.SCM;
@@ -382,10 +383,21 @@ public class CreateProject implements IConstructorCommand {
 					pom.build(Build.builder().plugin(VersionsPlugin.builder().version("2.5").configuration(builder.build()).build()).build());
 				}
 
-				{ // Create the "snapshots" profile
+				{ // Create the "release-snapshots" profile
 					final ProfileBuilder profile = Profile.builder().id("release-snapshot");
+
+					{// Distribution Management
+						final String id = "github";
+						final String name = String.format("GitHub %1$s Apache Maven Packages", organization.getLogin());
+						final String url = String.format("https://maven.pkg.github.com/%1$s/%2$s", organization.getLogin(), repositoryName);
+						profile.distributionManagement(DistributionRepository.builder().id(id).name(name).url(url).build());
+						profile.distributionManagement(DistributionSnapshotRepository.builder().id(id).name(name).url(url).build());
+					}
+
+					// Repositories
 					final Policies policies = Repository.Policies.builder().enabled(true).build();
 					profile.repository(Repository.builder().id(String.format("github-", organization.getLogin())).url(String.format("https://maven.pkg.github.com/%1$s/*", organization.getLogin())).releases(policies).snapshots(policies).build());
+
 					pom.profile(profile.build());
 				}
 
