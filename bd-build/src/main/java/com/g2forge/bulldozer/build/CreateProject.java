@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -73,13 +74,14 @@ import com.g2forge.bulldozer.build.maven.Descriptor;
 import com.g2forge.bulldozer.build.maven.POM;
 import com.g2forge.bulldozer.build.maven.Parent;
 import com.g2forge.bulldozer.build.maven.Profile;
+import com.g2forge.bulldozer.build.maven.Profile.ProfileBuilder;
 import com.g2forge.bulldozer.build.maven.Repository;
 import com.g2forge.bulldozer.build.maven.Repository.Policies;
-import com.g2forge.bulldozer.build.maven.Profile.ProfileBuilder;
 import com.g2forge.bulldozer.build.maven.build.Build;
 import com.g2forge.bulldozer.build.maven.build.plugin.VersionsPlugin;
 import com.g2forge.bulldozer.build.maven.build.plugin.VersionsPlugin.Configuration.ConfigurationBuilder;
 import com.g2forge.bulldozer.build.maven.distribution.DistributionRepository;
+import com.g2forge.bulldozer.build.maven.distribution.DistributionSnapshotRepository;
 import com.g2forge.bulldozer.build.maven.metadata.Developer;
 import com.g2forge.bulldozer.build.maven.metadata.License;
 import com.g2forge.bulldozer.build.maven.metadata.SCM;
@@ -447,7 +449,7 @@ public class CreateProject implements IConstructorCommand {
 			final String relative = ".github/workflows/maven.yml";
 			final Path workflow = directory.resolve(relative);
 			Files.createDirectories(workflow.getParent());
-			HGHActions.getMapper().writeValue(workflow.toFile(), HGHActions.createMavenWorkflow(repositoryName, dependencies));
+			HGHActions.getMapper().writeValue(workflow.toFile(), HGHActions.createMavenWorkflow(repositoryName, repository.getDefaultBranch(), Collections.emptySet()));
 			commit(git, getIssue() + " " + message, relative);
 		}
 
