@@ -15,10 +15,6 @@ import org.kohsuke.github.GitHub;
 import org.kohsuke.github.GitHubBuilder;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator;
-import com.fasterxml.jackson.module.jaxb.JaxbAnnotationModule;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.function.IFunction1;
 import com.g2forge.alexandria.java.function.IFunction2;
@@ -46,9 +42,6 @@ public class Context<P extends BulldozerProject> {
 	protected final IFunction2<? super Context<P>, ? super MavenProject, ? extends P> constructor;
 
 	@Getter(lazy = true)
-	private final XmlMapper xmlMapper = createXMLMapper();
-
-	@Getter(lazy = true)
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@Getter(lazy = true)
@@ -64,7 +57,7 @@ public class Context<P extends BulldozerProject> {
 
 	@Getter(lazy = true)
 	private final Map<String, P> projects = computeProjects();
-	
+
 	@Getter(lazy = true)
 	private final String rootProject = HCollection.getLast(getProjects().keySet());
 
@@ -97,14 +90,6 @@ public class Context<P extends BulldozerProject> {
 		final String key = new PropertyStringInput("ssh.key.file").fallback(new UserPasswordInput("SSH Key File")).get();
 		final String passphrase = new PropertyStringInput("ssh.key.passphrase").fallback(new UserPasswordInput(String.format("SSH Passphrase for %1$s", key))).get();
 		return HGit.createTransportConfig(key, passphrase);
-	}
-
-	protected XmlMapper createXMLMapper() {
-		final XmlMapper retVal = new XmlMapper();
-		retVal.registerModule(new JaxbAnnotationModule());
-		retVal.configure(ToXmlGenerator.Feature.WRITE_XML_DECLARATION, true);
-		retVal.enable(SerializationFeature.INDENT_OUTPUT);
-		return retVal;
 	}
 
 	public void failIfDirty() {

@@ -169,7 +169,7 @@ public class BulldozerProject implements ICloseable {
 
 	protected POM computePOM() {
 		try {
-			return getContext().getXmlMapper().readValue(getDirectory().resolve(HProject.POM).toFile(), POM.class);
+			return POM.getXmlMapper().readValue(getDirectory().resolve(HProject.POM).toFile(), POM.class);
 		} catch (IOException e) {
 			throw new RuntimeIOException(String.format("Failed to read %1$s for %2$s!", HProject.POM, getProject().getRelative()), e);
 		}

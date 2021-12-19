@@ -1,0 +1,26 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <repositories>
+    <repository>
+      <id>repository2-id</id>
+      <url>https://example.com/repository2</url>
+    </repository>
+  </repositories>
+  <profiles>
+    <profile>
+      <id>profile-id</id>
+      <repositories>
+        <repository>
+          <id>repository1-id</id>
+          <url>https://example.com/repository1</url>
+          <releases>
+            <enabled>true</enabled>
+          </releases>
+          <snapshots>
+            <enabled>true</enabled>
+          </snapshots>
+        </repository>
+      </repositories>
+    </profile>
+  </profiles>
+</project>

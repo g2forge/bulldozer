@@ -20,8 +20,6 @@ import com.g2forge.gearbox.command.converter.dumb.Working;
 import com.g2forge.gearbox.command.proxy.method.ICommandInterface;
 
 public interface IMaven extends ICommandInterface {
-	public static final String PROFILE_RELEASE = "release";
-
 	public static class CSVArgumentRenderer implements IArgumentRenderer<Object> {
 		@Override
 		public List<String> render(IMethodArgument<Object> argument) {
@@ -53,6 +51,8 @@ public interface IMaven extends ICommandInterface {
 		}
 	}
 
+	public static final List<String> PROFILES_RELEASE = HCollection.asList("release", "release-actual");
+
 	public static final String SNAPSHOT = "-SNAPSHOT";
 
 	public static final String RELEASE_PROPERTIES = "release.properties";
@@ -72,15 +72,15 @@ public interface IMaven extends ICommandInterface {
 
 	@Command({ "mvn", "clean", "install" })
 	public void install(@Working Path path, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-P") List<String> profiles);
-	
+
 	@Command({ "mvn", "clean", "install" })
 	public void install(@Working Path path, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-P") String... profiles);
 
-	@Command({ "mvn", "release:perform", "-P" + PROFILE_RELEASE })
-	public void releasePerform(@Working Path path);
+	@Command({ "mvn", "release:perform" })
+	public void releasePerform(@Working Path path, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-P") List<String> profiles);
 
-	@Command({ "mvn", "--batch-mode", "release:prepare", "-P" + PROFILE_RELEASE })
-	public void releasePrepare(@Working Path path, @Named("-Dtag=") String tag, @Named("-DreleaseVersion=") String release, @Named("-DdevelopmentVersion=") String development);
+	@Command({ "mvn", "--batch-mode", "release:prepare" })
+	public void releasePrepare(@Working Path path, @Named("-Dtag=") String tag, @Named("-DreleaseVersion=") String release, @Named("-DdevelopmentVersion=") String development, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-P") List<String> profiles);
 
 	@Command({ "mvn" })
 	public void updateVersions(@Working Path path, @ArgumentRenderer(UpdateParentArgumentRenderer.class) boolean parent, @ArgumentRenderer(SnapshotArgumentRenderer.class) @Constant("versions:update-properties") boolean snapshot, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-P") List<String> profiles, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-Dincludes=") List<String> includes);
