@@ -86,6 +86,8 @@ import com.g2forge.bulldozer.build.maven.metadata.Developer;
 import com.g2forge.bulldozer.build.maven.metadata.License;
 import com.g2forge.bulldozer.build.maven.metadata.SCM;
 import com.g2forge.bulldozer.build.maven.metadata.SCM.SCMBuilder;
+import com.g2forge.bulldozer.build.maven.settings.Server;
+import com.g2forge.bulldozer.build.maven.settings.Settings;
 import com.g2forge.bulldozer.build.model.BulldozerCreateProject;
 import com.g2forge.bulldozer.build.model.BulldozerProject;
 import com.g2forge.bulldozer.build.model.Context;
@@ -389,16 +391,15 @@ public class CreateProject implements IConstructorCommand {
 					final ProfileBuilder profile = Profile.builder().id("release-snapshot");
 
 					{// Distribution Management
-						final String id = "github";
 						final String name = String.format("GitHub %1$s Apache Maven Packages", organization.getLogin());
 						final String url = String.format("https://maven.pkg.github.com/%1$s/%2$s", organization.getLogin(), repositoryName);
-						profile.distributionManagement(DistributionRepository.builder().id(id).name(name).url(url).build());
-						profile.distributionManagement(DistributionSnapshotRepository.builder().id(id).name(name).url(url).build());
+						profile.distributionManagement(DistributionRepository.builder().id(MAVEN_REPOSITORYID_DEPLOYMENT).name(name).url(url).build());
+						profile.distributionManagement(DistributionSnapshotRepository.builder().id(MAVEN_REPOSITORYID_DEPLOYMENT).name(name).url(url).build());
 					}
 
 					// Repositories
 					final Policies policies = Repository.Policies.builder().enabled(true).build();
-					profile.repository(Repository.builder().id(String.format("github-", organization.getLogin())).url(String.format("https://maven.pkg.github.com/%1$s/*", organization.getLogin())).releases(policies).snapshots(policies).build());
+					profile.repository(Repository.builder().id(getMavenRepsitoryIDOrganization(organization.getLogin())).url(String.format("https://maven.pkg.github.com/%1$s/*", organization.getLogin())).releases(policies).snapshots(policies).build());
 
 					pom.profile(profile.build());
 				}
@@ -446,15 +447,42 @@ public class CreateProject implements IConstructorCommand {
 			if (create.getParent() != null) dependencies.add(create.getParent());
 			dependencies.addAll(create.getDependencies());
 
-			final String relative = ".github/workflows/maven.yml";
-			final Path workflow = directory.resolve(relative);
-			Files.createDirectories(workflow.getParent());
-			HGHActions.getMapper().writeValue(workflow.toFile(), HGHActions.createMavenWorkflow(repositoryName, repository.getDefaultBranch(), Collections.emptySet()));
-			commit(git, getIssue() + " " + message, relative);
+			final boolean protectionPublic = MavenProject.Protection.Public.equals(create.getProtection());
+			final String settingsRelative = ".github/workflows/maven-settings.xml";
+			{
+				final Path settingsPath = directory.resolve(settingsRelative);
+				Files.createDirectories(settingsPath.getParent());
+				final Settings.SettingsBuilder settings = Settings.builder();
+				settings.server(Server.builder().id(MAVEN_REPOSITORYID_DEPLOYMENT).username("${env." + GITHUB_ACTOR + "}").password("${env." + GITHUB_TOKEN + "}").build());
+				settings.server(Server.builder().id(getMavenRepsitoryIDOrganization(organization.getLogin())).username("${env." + (protectionPublic ? GITHUB_ACTOR : PACKAGESREAD_USERNAME) + "}").password("${env." + (protectionPublic ? GITHUB_TOKEN : PACKAGESREAD_TOKEN) + "}").build());
+				POM.getXmlMapper().writeValue(settingsPath.toFile(), settings.build());
+			}
+
+			final String workflowRelative = ".github/workflows/maven.yml";
+			{
+				final Path workflowPath = directory.resolve(workflowRelative);
+				Files.createDirectories(workflowPath.getParent());
+				HGHActions.getMapper().writeValue(workflowPath.toFile(), HGHActions.createMavenWorkflow(repositoryName, repository.getDefaultBranch(), "${GITHUB_WORKSPACE}/.github/workflows/maven-settings.xml", Collections.emptySet(), protectionPublic ? Collections.emptySet() : HCollection.asSet(PACKAGESREAD_USERNAME, PACKAGESREAD_TOKEN)));
+			}
+			commit(git, getIssue() + " " + message, workflowRelative);
 		}
 
 		// Note that we do not push the branch or open PRs, there is another command for that
 		log.info("Success!");
 		return IStandardCommand.SUCCESS;
+	}
+
+	protected static final String GITHUB_ACTOR = "GITHUB_ACTOR";
+
+	protected static final String GITHUB_TOKEN = "GITHUB_TOKEN";
+
+	protected static final String PACKAGESREAD_USERNAME = "PACKAGESREAD_USERNAME";
+
+	protected static final String PACKAGESREAD_TOKEN = "PACKAGESREAD_TOKEN";
+
+	protected static final String MAVEN_REPOSITORYID_DEPLOYMENT = "github";
+
+	protected static String getMavenRepsitoryIDOrganization(String organization) {
+		return String.format("github-", organization);
 	}
 }
