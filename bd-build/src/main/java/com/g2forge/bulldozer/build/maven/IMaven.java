@@ -31,7 +31,9 @@ public interface IMaven extends ICommandInterface {
 				final Collection<String> includes = (Collection<String>) value;
 				stream = includes.stream();
 			}
-			return HDumbCommandConverter.computeString(argument, stream.collect(Collectors.joining(",")));
+			final String string = stream.collect(Collectors.joining(","));
+			if (string.isEmpty()) return HCollection.emptyList();
+			return HDumbCommandConverter.computeString(argument, string);
 		}
 	}
 
