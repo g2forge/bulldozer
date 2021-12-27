@@ -79,6 +79,7 @@ public class CreatePRs implements IConstructorCommand {
 		// In topological order...
 		final Map<String, GHPullRequest> projectToPullRequest = new HashMap<>();
 		for (String name : order) {
+			log.info(String.format("Working on %1$s", name));
 			final BulldozerProject project = getContext().getProjects().get(name);
 			final String remote = HGit.getMyRemote(project.getGit());
 
