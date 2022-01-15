@@ -13,7 +13,7 @@ import org.eclipse.jgit.lib.RefUpdate.Result;
 import org.eclipse.jgit.transport.FetchResult;
 import org.slf4j.event.Level;
 
-import com.g2forge.alexandria.adt.graph.HGraph;
+import com.g2forge.alexandria.adt.graph.v1.HGraph;
 import com.g2forge.alexandria.command.command.IConstructorCommand;
 import com.g2forge.alexandria.command.command.IStandardCommand;
 import com.g2forge.alexandria.command.exit.IExit;
