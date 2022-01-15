@@ -20,7 +20,7 @@ import org.semver.Version;
 import org.slf4j.event.Level;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.g2forge.alexandria.adt.graph.HGraph;
+import com.g2forge.alexandria.adt.graph.v1.HGraph;
 import com.g2forge.alexandria.command.command.IConstructorCommand;
 import com.g2forge.alexandria.command.command.IStandardCommand;
 import com.g2forge.alexandria.command.exit.IExit;
