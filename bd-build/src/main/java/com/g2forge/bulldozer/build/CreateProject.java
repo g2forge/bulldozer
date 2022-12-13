@@ -464,7 +464,7 @@ public class CreateProject implements IConstructorCommand {
 				Files.createDirectories(workflowPath.getParent());
 				HGHActions.getMapper().writeValue(workflowPath.toFile(), HGHActions.createMavenWorkflow(repositoryName, repository.getDefaultBranch(), "${GITHUB_WORKSPACE}/.github/workflows/maven-settings.xml", Collections.emptySet(), protectionPublic ? Collections.emptySet() : HCollection.asSet(PACKAGESREAD_USERNAME, PACKAGESREAD_TOKEN)));
 			}
-			commit(git, getIssue() + " " + message, workflowRelative);
+			commit(git, getIssue() + " " + message, settingsRelative, workflowRelative);
 		}
 
 		// Note that we do not push the branch or open PRs, there is another command for that
