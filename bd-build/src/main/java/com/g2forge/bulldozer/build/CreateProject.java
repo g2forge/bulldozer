@@ -138,7 +138,7 @@ public class CreateProject implements IConstructorCommand {
 	@RequiredArgsConstructor
 	@Getter
 	public enum StandardLabel {
-		Master("master", "0e8a16"),
+		Main("main", "0e8a16"),
 		HOLDAuthor("HOLD: Author", "b60205"),
 		HOLDOtherPR("HOLD: Other PR", "b60205");
 
@@ -151,6 +151,16 @@ public class CreateProject implements IConstructorCommand {
 		final String issue = new CommandLineStringInput(invocation, 1).fallback(new UserStringInput("Issue", true)).get();
 		return new CreateProject(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(invocation.getArguments().get(0))), issue);
 	});
+
+	protected static final String GITHUB_ACTOR = "GITHUB_ACTOR";
+
+	protected static final String GITHUB_TOKEN = "GITHUB_TOKEN";
+
+	protected static final String PACKAGESREAD_USERNAME = "PACKAGESREAD_USERNAME";
+
+	protected static final String PACKAGESREAD_TOKEN = "PACKAGESREAD_TOKEN";
+
+	protected static final String MAVEN_REPOSITORYID_DEPLOYMENT = "github";
 
 	public static void commit(Git git, String message, String... files) throws NoWorkTreeException, GitAPIException {
 		final StatusCommand status = git.status();
@@ -170,6 +180,10 @@ public class CreateProject implements IConstructorCommand {
 			git.commit().setMessage(message).call();
 			log.info(String.format("Comitting: %1$s", message));
 		}
+	}
+
+	protected static String getMavenRepsitoryIDOrganization(String organization) {
+		return String.format("github-", organization);
 	}
 
 	public static void main(String[] args) throws Throwable {
@@ -470,19 +484,5 @@ public class CreateProject implements IConstructorCommand {
 		// Note that we do not push the branch or open PRs, there is another command for that
 		log.info("Success!");
 		return IStandardCommand.SUCCESS;
-	}
-
-	protected static final String GITHUB_ACTOR = "GITHUB_ACTOR";
-
-	protected static final String GITHUB_TOKEN = "GITHUB_TOKEN";
-
-	protected static final String PACKAGESREAD_USERNAME = "PACKAGESREAD_USERNAME";
-
-	protected static final String PACKAGESREAD_TOKEN = "PACKAGESREAD_TOKEN";
-
-	protected static final String MAVEN_REPOSITORYID_DEPLOYMENT = "github";
-
-	protected static String getMavenRepsitoryIDOrganization(String organization) {
-		return String.format("github-", organization);
 	}
 }
