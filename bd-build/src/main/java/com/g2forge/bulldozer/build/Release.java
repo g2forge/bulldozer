@@ -31,6 +31,7 @@ import com.g2forge.alexandria.command.command.IStandardCommand;
 import com.g2forge.alexandria.command.exit.IExit;
 import com.g2forge.alexandria.java.close.ICloseable;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
+import com.g2forge.alexandria.java.core.helpers.HCollector;
 import com.g2forge.alexandria.java.fluent.optional.NullableOptional;
 import com.g2forge.alexandria.java.io.HIO;
 import com.g2forge.alexandria.java.io.RuntimeIOException;
@@ -199,6 +200,11 @@ public class Release implements IConstructorCommand {
 			// Check for uncommitted changes in any project, and fail
 			if (!allowDirty) getContext().failIfDirty();
 
+			{ // Report a nice clean error if any of the target projects are unknown
+				final Set<String> unknownProjects = HCollection.difference(targets, getContext().getNameToProject().keySet());
+				if (!unknownProjects.isEmpty()) throw new IllegalArgumentException(String.format("One or more target projects to release (%1$s) are unknown!", unknownProjects.stream().collect(HCollector.joining(", ", ", & "))));
+			}
+
 			// Compute the order in which to release the public projects
 			log.info("Planning release order");
 			final List<String> order = HGraph.toposort(targets, p -> getContext().getNameToProject().get(p).getDependencies().getTransitive().keySet(), false);
@@ -213,7 +219,7 @@ public class Release implements IConstructorCommand {
 						throw new RuntimeException(String.format("Failure while attempting to check whether %1$s is already tagged!", project.getName()), e);
 					}
 				}).collect(Collectors.toList());
-				if (!tagged.isEmpty()) throw new IllegalStateException(String.format("One or more projects were already tagged (%1$s), please remove those tags and try again!", tagged.stream().map(BulldozerProject::getName).collect(Collectors.joining(", "))));
+				if (!tagged.isEmpty()) throw new IllegalStateException(String.format("One or more projects were already tagged (%1$s), please remove those tags and try again!", tagged.stream().map(p -> p.getName() + "@" + p.getVersion()).collect(Collectors.joining(", "))));
 			}
 
 			// Verify all the releases
