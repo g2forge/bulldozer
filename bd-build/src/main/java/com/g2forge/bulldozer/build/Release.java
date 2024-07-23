@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Properties;
@@ -30,6 +31,7 @@ import com.g2forge.alexandria.command.command.IConstructorCommand;
 import com.g2forge.alexandria.command.command.IStandardCommand;
 import com.g2forge.alexandria.command.exit.IExit;
 import com.g2forge.alexandria.java.close.ICloseable;
+import com.g2forge.alexandria.java.core.error.HError;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.core.helpers.HCollector;
 import com.g2forge.alexandria.java.fluent.optional.NullableOptional;
@@ -267,15 +269,21 @@ public class Release implements IConstructorCommand {
 
 					// Update everyone who consumes this project (including the private consumers!) to the new version (and commit)
 					log.info("Updating downstreams {} {}", name, releaseProperties.getRelease());
+					final List<Throwable> throwables = new ArrayList<>();
 					for (BulldozerProject downstream : getContext().getProjects().values()) {
-						// Skip ourselves & projects that don't depend on us
-						if ((downstream == project) || !downstream.getDependencies().getTransitive().keySet().contains(name)) continue;
-						// Record that we're updating this project so it needs to be re-installed at the end
-						unreleasedProjectsToReinstall.add(downstream.getName());
-						// Update all the downstreams to new release versions
-						switchToBranch(downstream.getGit());
-						getContext().getMaven().updateVersions(downstream.getDirectory(), downstream.getParentGroup().equals(project.getGroup()), false, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
+						try {
+							// Skip ourselves & projects that don't depend on us
+							if ((downstream == project) || !downstream.getDependencies().getTransitive().keySet().contains(name)) continue;
+							// Record that we're updating this project so it needs to be re-installed at the end
+							unreleasedProjectsToReinstall.add(downstream.getName());
+							// Update all the downstreams to new release versions
+							switchToBranch(downstream.getGit());
+							getContext().getMaven().updateVersions(downstream.getDirectory(), downstream.getParentGroup().equals(project.getGroup()), false, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
+						} catch (Throwable throwable) {
+							throwables.add(throwable);
+						}
 					}
+					if (!throwables.isEmpty()) throw HError.withSuppressed(new RuntimeException("Unable to update downstreams!"), throwables);
 
 					phase = project.updatePhase(Phase.InstalledRelease);
 				}
