@@ -60,6 +60,7 @@ public class Release implements IConstructorCommand {
 		Verified,
 		Prepared,
 		InstalledRelease,
+		UpdatedDownstreams,
 		Released,
 		InstalledDevelopment,
 		DeletedRelease,
@@ -266,7 +267,11 @@ public class Release implements IConstructorCommand {
 					project.checkoutTag(project.getReleaseProperties().getTag());
 					// Maven install (stream stdio to the console) the newly created release version
 					getContext().getMaven().install(project.getDirectory(), IMaven.PROFILES_RELEASE);
+					phase = project.updatePhase(Phase.InstalledRelease);
+				}
+				log.info("Installed release {} {}", name, releaseProperties.getRelease());
 
+				if (Phase.UpdatedDownstreams.compareTo(phase) > 0) {
 					// Update everyone who consumes this project (including the private consumers!) to the new version (and commit)
 					log.info("Updating downstreams {} {}", name, releaseProperties.getRelease());
 					final List<Throwable> throwables = new ArrayList<>();
@@ -285,9 +290,9 @@ public class Release implements IConstructorCommand {
 					}
 					if (!throwables.isEmpty()) throw HError.withSuppressed(new RuntimeException("Unable to update downstreams!"), throwables);
 
-					phase = project.updatePhase(Phase.InstalledRelease);
+					phase = project.updatePhase(Phase.UpdatedDownstreams);
 				}
-				log.info("Installed release {} {}", name, releaseProperties.getRelease());
+				log.info("Updated downstreams {} {}", name, releaseProperties.getRelease());
 			}
 
 			// Perform the releases
