@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Properties;
@@ -30,7 +31,9 @@ import com.g2forge.alexandria.command.command.IConstructorCommand;
 import com.g2forge.alexandria.command.command.IStandardCommand;
 import com.g2forge.alexandria.command.exit.IExit;
 import com.g2forge.alexandria.java.close.ICloseable;
+import com.g2forge.alexandria.java.core.error.HError;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
+import com.g2forge.alexandria.java.core.helpers.HCollector;
 import com.g2forge.alexandria.java.fluent.optional.NullableOptional;
 import com.g2forge.alexandria.java.io.HIO;
 import com.g2forge.alexandria.java.io.RuntimeIOException;
@@ -57,6 +60,7 @@ public class Release implements IConstructorCommand {
 		Verified,
 		Prepared,
 		InstalledRelease,
+		UpdatedDownstreams,
 		Released,
 		InstalledDevelopment,
 		DeletedRelease,
@@ -199,6 +203,11 @@ public class Release implements IConstructorCommand {
 			// Check for uncommitted changes in any project, and fail
 			if (!allowDirty) getContext().failIfDirty();
 
+			{ // Report a nice clean error if any of the target projects are unknown
+				final Set<String> unknownProjects = HCollection.difference(targets, getContext().getNameToProject().keySet());
+				if (!unknownProjects.isEmpty()) throw new IllegalArgumentException(String.format("One or more target projects to release (%1$s) are unknown!", unknownProjects.stream().collect(HCollector.joining(", ", ", & "))));
+			}
+
 			// Compute the order in which to release the public projects
 			log.info("Planning release order");
 			final List<String> order = HGraph.toposort(targets, p -> getContext().getNameToProject().get(p).getDependencies().getTransitive().keySet(), false);
@@ -213,7 +222,7 @@ public class Release implements IConstructorCommand {
 						throw new RuntimeException(String.format("Failure while attempting to check whether %1$s is already tagged!", project.getName()), e);
 					}
 				}).collect(Collectors.toList());
-				if (!tagged.isEmpty()) throw new IllegalStateException(String.format("One or more projects were already tagged (%1$s), please remove those tags and try again!", tagged.stream().map(BulldozerProject::getName).collect(Collectors.joining(", "))));
+				if (!tagged.isEmpty()) throw new IllegalStateException(String.format("One or more projects were already tagged (%1$s), please remove those tags and try again!", tagged.stream().map(p -> p.getName() + "@" + p.getVersion()).collect(Collectors.joining(", "))));
 			}
 
 			// Verify all the releases
@@ -258,22 +267,33 @@ public class Release implements IConstructorCommand {
 					project.checkoutTag(project.getReleaseProperties().getTag());
 					// Maven install (stream stdio to the console) the newly created release version
 					getContext().getMaven().install(project.getDirectory(), IMaven.PROFILES_RELEASE);
-
-					// Update everyone who consumes this project (including the private consumers!) to the new version (and commit)
-					log.info("Updating downstreams {} {}", name, releaseProperties.getRelease());
-					for (BulldozerProject downstream : getContext().getProjects().values()) {
-						// Skip ourselves & projects that don't depend on us
-						if ((downstream == project) || !downstream.getDependencies().getTransitive().keySet().contains(name)) continue;
-						// Record that we're updating this project so it needs to be re-installed at the end
-						unreleasedProjectsToReinstall.add(downstream.getName());
-						// Update all the downstreams to new release versions
-						switchToBranch(downstream.getGit());
-						getContext().getMaven().updateVersions(downstream.getDirectory(), downstream.getParentGroup().equals(project.getGroup()), false, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
-					}
-
 					phase = project.updatePhase(Phase.InstalledRelease);
 				}
 				log.info("Installed release {} {}", name, releaseProperties.getRelease());
+
+				if (Phase.UpdatedDownstreams.compareTo(phase) > 0) {
+					// Update everyone who consumes this project (including the private consumers!) to the new version (and commit)
+					log.info("Updating downstreams {} {}", name, releaseProperties.getRelease());
+					final List<Throwable> throwables = new ArrayList<>();
+					for (BulldozerProject downstream : getContext().getProjects().values()) {
+						try {
+							// Skip ourselves & projects that don't depend on us
+							if ((downstream == project) || !downstream.getDependencies().getTransitive().keySet().contains(name)) continue;
+							log.info("\tFound downstream{}", downstream.getName());
+							// Record that we're updating this project so it needs to be re-installed at the end
+							unreleasedProjectsToReinstall.add(downstream.getName());
+							// Update all the downstreams to new release versions
+							switchToBranch(downstream.getGit());
+							getContext().getMaven().updateVersions(downstream.getDirectory(), downstream.getParentGroup().equals(project.getGroup()), false, PROFILES_TO_UPDATE, HCollection.asList(project.getGroup() + ":*"));
+						} catch (Throwable throwable) {
+							throwables.add(throwable);
+						}
+					}
+					if (!throwables.isEmpty()) throw HError.withSuppressed(new RuntimeException("Unable to update downstreams!"), throwables);
+
+					phase = project.updatePhase(Phase.UpdatedDownstreams);
+				}
+				log.info("Updated downstreams {} {}", name, releaseProperties.getRelease());
 			}
 
 			// Perform the releases
@@ -325,6 +345,7 @@ public class Release implements IConstructorCommand {
 			// Commit anything dirty, since those are the things with version updates
 			log.info("Committing downstream projects");
 			for (BulldozerProject project : getContext().getProjects().values()) {
+				log.info("\t{}", project.getName());
 				// Commit anything dirty, since those are the things with version updates
 				switchToBranch(project.getGit());
 				commitUpstreamReversion(project.getGit());
@@ -334,6 +355,7 @@ public class Release implements IConstructorCommand {
 			log.info("Reinstalling downstream projects");
 			final List<String> unreleasedInstallOrder = HGraph.toposort(unreleasedProjectsToReinstall, p -> getContext().getNameToProject().get(p).getDependencies().getTransitive().keySet(), false);
 			for (String name : unreleasedInstallOrder) {
+				log.info("\t{}", name);
 				final BulldozerProject project = getContext().getNameToProject().get(name);
 				// Maven install (stream stdio to the console) the downstream, since it was updated
 				getContext().getMaven().install(project.getDirectory());

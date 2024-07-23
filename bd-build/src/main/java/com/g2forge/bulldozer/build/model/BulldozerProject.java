@@ -127,7 +127,9 @@ public class BulldozerProject implements ICloseable {
 				final Set<String> versions = tuples.stream().map(ITuple1G_::get0).map(Descriptor::getVersion).collect(Collectors.toSet());
 				final String version = getSingleVersions(versions);
 				if (version == null) throw new IllegalArgumentException(String.format("%3$s depends on multiple versions of the project \"%1$s\": %2$s\n\t%4$s", group, versions, name, dependencyTree.stream().collect(Collectors.joining("\n\t"))));
-				final String dependency = groupToProject.get(group).getName();
+				final BulldozerProject dependencyProject = groupToProject.get(group);
+				if (dependencyProject == null) throw new IllegalArgumentException(String.format("%1$s depends on group with unknown project: %2$s", name, group));
+				final String dependency = dependencyProject.getName();
 
 				// If any of the dependencies are immediate, then the project dependency is
 				final boolean immediate = tuples.stream().filter(ITuple2G_::get1).findAny().isPresent();
