@@ -28,3 +28,8 @@
 * `license`: The license to apply to this project.
   * `"Apache2"` should generally be used for all code
   * `"MIT"` may be more appropriate for websites, typescript libraries and the like
+
+# Release
+
+* Install gpg through cygwin (not gpg2, since the plugin looks for gpg.exe specifically)
+* Install git and ensure it's on the path
