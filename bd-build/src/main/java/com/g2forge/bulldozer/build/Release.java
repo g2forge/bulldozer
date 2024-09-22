@@ -159,7 +159,10 @@ public class Release implements IConstructorCommand {
 
 	public static final IStandardCommand COMMAND_FACTORY = IStandardCommand.of(invocation -> {
 		final List<String> arguments = invocation.getArguments();
-		return new Release(new Context<ReleaseProject>(ReleaseProject::new, Paths.get(arguments.get(0))), arguments.get(1), arguments.subList(2, arguments.size()));
+		final Path root = Paths.get(arguments.get(0));
+		final String issue = arguments.get(1);
+		final List<String> targets = arguments.subList(2, arguments.size());
+		return new Release(new Context<ReleaseProject>(ReleaseProject::new, root), issue, targets);
 	});
 
 	public static void main(String[] args) throws Throwable {
