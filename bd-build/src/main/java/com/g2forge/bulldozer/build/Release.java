@@ -208,7 +208,7 @@ public class Release implements IConstructorCommand {
 
 			{ // Report a nice clean error if any of the target projects are unknown
 				final Set<String> unknownProjects = HCollection.difference(targets, getContext().getNameToProject().keySet());
-				if (!unknownProjects.isEmpty()) throw new IllegalArgumentException(String.format("One or more target projects to release (%1$s) are unknown!", unknownProjects.stream().collect(HCollector.joining(", ", ", & "))));
+				if (!unknownProjects.isEmpty()) throw new IllegalArgumentException(String.format("One or more target projects to release (%1$s) are unknown!", unknownProjects.stream().collect(HCollector.joiningHuman())));
 			}
 
 			// Compute the order in which to release the public projects
