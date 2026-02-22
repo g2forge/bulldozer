@@ -2,6 +2,7 @@ package com.g2forge.bulldozer.build.model;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +29,7 @@ import com.g2forge.bulldozer.build.model.maven.MavenProjects;
 import com.g2forge.gearbox.command.converter.dumb.DumbCommandConverter;
 import com.g2forge.gearbox.command.process.ProcessBuilderRunner;
 import com.g2forge.gearbox.command.proxy.CommandProxyFactory;
-import com.g2forge.gearbox.git.HGit;
+import com.g2forge.gearbox.git.GitSSHCredentials;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -89,7 +90,7 @@ public class Context<P extends BulldozerProject> {
 	protected TransportConfigCallback computeTransportConfig() {
 		final String key = new PropertyStringInput("ssh.key.file").fallback(new UserPasswordInput("SSH Key File")).get();
 		final String passphrase = new PropertyStringInput("ssh.key.passphrase").fallback(new UserPasswordInput(String.format("SSH Passphrase for %1$s", key))).get();
-		return HGit.createTransportConfig(key, passphrase);
+		return new GitSSHCredentials(Paths.get(key), passphrase).createTransportConfigCallback();
 	}
 
 	public void failIfDirty() {
