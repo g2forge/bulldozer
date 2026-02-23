@@ -257,6 +257,7 @@ public class Release implements IConstructorCommand {
 					switchToBranch(git);
 					// Commit any changes from a past prepare
 					commitUpstreamReversion(git);
+					project.preserveTemp();
 
 					// Prepare the project (stream stdio to the console)
 					getContext().getMaven().releasePrepare(project.getDirectory(), releaseProperties.getTag(), releaseProperties.getRelease(), releaseProperties.getDevelopment(), IMaven.PROFILES_RELEASE);
@@ -352,6 +353,7 @@ public class Release implements IConstructorCommand {
 				// Commit anything dirty, since those are the things with version updates
 				switchToBranch(project.getGit());
 				commitUpstreamReversion(project.getGit());
+				project.preserveTemp();
 			}
 
 			// Re-install all the downstream projects that have had updated upstreams

@@ -103,6 +103,14 @@ public class BulldozerProject implements ICloseable {
 		HIO.closeAll(getCloseables());
 	}
 
+	protected String computeCommit() {
+		try {
+			return getGit().getRepository().findRef(Constants.HEAD).getObjectId().getName();
+		} catch (IOException exception) {
+			throw new RuntimeIOException(String.format("Failed to determine commit for %1$s!", getName()), exception);
+		}
+	}
+
 	protected BulldozerDependencies computeDependencies() {
 		final Map<String, ? extends BulldozerProject> nameToProject = getContext().getNameToProject();
 		final Map<String, ? extends BulldozerProject> groupToProject = getContext().getGroupToProject();
@@ -190,28 +198,20 @@ public class BulldozerProject implements ICloseable {
 	}
 
 	public <T> T loadTemp(IFunction1<BulldozerTemp, T> getter, IConsumer2<BulldozerTemp, T> setter, ISupplier<T> generator) {
-		final String commit;
-		try {
-			commit = getGit().getRepository().findRef(Constants.HEAD).getObjectId().getName();
-		} catch (IOException exception) {
-			throw new RuntimeIOException(String.format("Failed to determine commit for %1$s!", getName()), exception);
-		}
+		final String commit = computeCommit();
 
 		final Path path = getDirectory().resolve(BulldozerTemp.BULLDOZER_TEMP);
 		BulldozerTemp temp = null;
 		if (Files.exists(path)) {
 			try {
 				final BulldozerTemp read = getContext().getObjectMapper().readValue(path.toFile(), BulldozerTemp.class);
-				if (read.getKey().equals(commit)) temp = read;
+				if (read.isValidForCommit(commit)) temp = read;
 				else Files.delete(path);
 			} catch (IOException exception) {
 				log.warn(String.format("Failed to read bulldozer temp data for %1$s, will regenerate...", getName()));
 			}
 		}
-		if (temp == null) {
-			temp = new BulldozerTemp();
-			temp.setKey(commit);
-		}
+		if (temp == null) temp = BulldozerTemp.builder().commit(commit).build();
 		final T retVal0 = getter.apply(temp);
 		if (retVal0 != null) return retVal0;
 
@@ -228,5 +228,22 @@ public class BulldozerProject implements ICloseable {
 			throw new RuntimeIOException(String.format("Failed to update bulldozer temp data for %1$s!", getName()), exception);
 		}
 		return retVal1;
+	}
+
+	public void preserveTemp() {
+		final String commit = computeCommit();
+
+		final Path path = getDirectory().resolve(BulldozerTemp.BULLDOZER_TEMP);
+		if (Files.exists(path)) {
+			try {
+				final BulldozerTemp read = getContext().getObjectMapper().readValue(path.toFile(), BulldozerTemp.class);
+				if (!read.isValidForCommit(commit)) {
+					final BulldozerTemp write = read.toBuilder().otherCommit(commit).build();
+					getContext().getObjectMapper().writeValue(path.toFile(), write);
+				}
+			} catch (IOException exception) {
+				log.warn(String.format("Failed to preserve bulldozer temp data for %1$s, will regenerate later...", getName()));
+			}
+		}
 	}
 }
