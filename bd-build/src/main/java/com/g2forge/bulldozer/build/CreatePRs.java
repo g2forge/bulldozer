@@ -3,6 +3,7 @@ package com.g2forge.bulldozer.build;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -50,7 +51,8 @@ public class CreatePRs implements IConstructorCommand {
 	public static final IStandardCommand COMMAND_FACTORY = IStandardCommand.of(invocation -> {
 		final String branch = new CommandLineStringInput(invocation, 1).fallback(new UserStringInput("Branch", true)).get();
 		final String title = new CommandLineStringInput(invocation, 2).fallback(new UserStringInput("Title", true)).get();
-		return new CreatePRs(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(invocation.getArguments().get(0))), branch, title);
+		final Set<String> ignore = (invocation.getArguments().size() > 3) ? new HashSet<>(invocation.getArguments().subList(3, invocation.getArguments().size())) : HCollection.emptySet();
+		return new CreatePRs(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(invocation.getArguments().get(0))), branch, title, ignore);
 	});
 
 	public static void main(String[] args) throws Throwable {
@@ -62,6 +64,8 @@ public class CreatePRs implements IConstructorCommand {
 	protected final String branch;
 
 	protected final String title;
+
+	protected final Set<String> ignore;
 
 	protected final boolean allowDirty = new PropertyStringInput("bulldozer.allowdirty").map(Boolean::valueOf).fallback(NullableOptional.of(false)).get();
 
@@ -79,6 +83,10 @@ public class CreatePRs implements IConstructorCommand {
 		// In topological order...
 		final Map<String, GHPullRequest> projectToPullRequest = new HashMap<>();
 		for (String name : order) {
+			if (getIgnore().contains(name)) {
+				log.info(String.format("Ignoring on %1$s", name));
+				continue;
+			}
 			log.info(String.format("Working on %1$s", name));
 			final BulldozerProject project = getContext().getProjects().get(name);
 			final String remote = HGit.getMyRemote(project.getGit());
