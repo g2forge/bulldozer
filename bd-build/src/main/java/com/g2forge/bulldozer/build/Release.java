@@ -257,6 +257,7 @@ public class Release implements IConstructorCommand {
 					switchToBranch(git);
 					// Commit any changes from a past prepare
 					commitUpstreamReversion(git);
+					project.preserveTemp();
 
 					// Prepare the project (stream stdio to the console)
 					getContext().getMaven().releasePrepare(project.getDirectory(), releaseProperties.getTag(), releaseProperties.getRelease(), releaseProperties.getDevelopment(), IMaven.PROFILES_RELEASE);
@@ -282,7 +283,7 @@ public class Release implements IConstructorCommand {
 						try {
 							// Skip ourselves & projects that don't depend on us
 							if ((downstream == project) || !downstream.getDependencies().getTransitive().keySet().contains(name)) continue;
-							log.info("\tFound downstream{}", downstream.getName());
+							log.info("\tFound downstream {}", downstream.getName());
 							// Record that we're updating this project so it needs to be re-installed at the end
 							unreleasedProjectsToReinstall.add(downstream.getName());
 							// Update all the downstreams to new release versions
@@ -352,6 +353,7 @@ public class Release implements IConstructorCommand {
 				// Commit anything dirty, since those are the things with version updates
 				switchToBranch(project.getGit());
 				commitUpstreamReversion(project.getGit());
+				project.preserveTemp();
 			}
 
 			// Re-install all the downstream projects that have had updated upstreams
