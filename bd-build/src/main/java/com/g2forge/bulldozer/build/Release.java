@@ -270,7 +270,7 @@ public class Release implements IConstructorCommand {
 					// Check out the recent tag using jgit
 					project.checkoutTag(project.getReleaseProperties().getTag());
 					// Maven install (stream stdio to the console) the newly created release version
-					getContext().getMaven().install(project.getDirectory(), IMaven.PROFILES_RELEASE);
+					getContext().getMaven().install(project.getDirectory(), true, IMaven.PROFILES_RELEASE);
 					phase = project.updatePhase(Phase.InstalledRelease);
 				}
 				log.info("Installed release {} {}", name, releaseProperties.getRelease());
@@ -328,7 +328,7 @@ public class Release implements IConstructorCommand {
 					// Check out the branch head
 					project.getGit().checkout().setCreateBranch(false).setName(getBranch()).call();
 					// Maven install (stream stdio to the console) the new development versions
-					getContext().getMaven().install(project.getDirectory(), IMaven.PROFILES_RELEASE);
+					getContext().getMaven().install(project.getDirectory(), false, IMaven.PROFILES_RELEASE);
 
 					log.info("Updating downstream {}", name);
 					for (BulldozerProject downstream : getContext().getProjects().values()) {
@@ -363,7 +363,7 @@ public class Release implements IConstructorCommand {
 				log.info("\t{}", name);
 				final BulldozerProject project = getContext().getNameToProject().get(name);
 				// Maven install (stream stdio to the console) the downstream, since it was updated
-				getContext().getMaven().install(project.getDirectory());
+				getContext().getMaven().install(project.getDirectory(), false, HCollection.emptyList());
 			}
 
 			// Find the local maven repository

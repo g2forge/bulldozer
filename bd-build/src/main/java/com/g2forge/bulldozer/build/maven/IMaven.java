@@ -77,10 +77,7 @@ public interface IMaven extends ICommandInterface {
 	public Stream<String> evaluateRaw(@Working Path path, @Named("-Dexpression=") String expression);
 
 	@Command({ "mvn", "clean", "install" })
-	public void install(@Working Path path, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-P") List<String> profiles);
-
-	@Command({ "mvn", "clean", "install" })
-	public void install(@Working Path path, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-P") String... profiles);
+	public void install(@Working Path path, @Flag("-DskipTests") boolean skipTests, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-P") List<String> profiles);
 
 	@Command({ "mvn", "release:perform" })
 	public void releasePerform(@Working Path path, @ArgumentRenderer(CSVArgumentRenderer.class) @Named("-P") List<String> profiles);
