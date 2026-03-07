@@ -1,53 +1,34 @@
 package com.g2forge.bulldozer.build.maven;
 
 import java.nio.file.Path;
-import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.core.helpers.HStream;
 import com.g2forge.gearbox.command.converter.IMethodArgument;
-import com.g2forge.gearbox.command.converter.dumb.ArgumentRenderer;
+import com.g2forge.gearbox.command.converter.argumentrenderer.ASimpleArgumentRenderer;
+import com.g2forge.gearbox.command.converter.argumentrenderer.ArgumentRenderer;
+import com.g2forge.gearbox.command.converter.argumentrenderer.CSVArgumentRenderer;
 import com.g2forge.gearbox.command.converter.dumb.Command;
 import com.g2forge.gearbox.command.converter.dumb.Constant;
 import com.g2forge.gearbox.command.converter.dumb.Flag;
-import com.g2forge.gearbox.command.converter.dumb.HDumbCommandConverter;
-import com.g2forge.gearbox.command.converter.dumb.IArgumentRenderer;
 import com.g2forge.gearbox.command.converter.dumb.Named;
 import com.g2forge.gearbox.command.converter.dumb.Working;
 import com.g2forge.gearbox.command.proxy.method.ICommandInterface;
 
 public interface IMaven extends ICommandInterface {
-	public static class CSVArgumentRenderer implements IArgumentRenderer<Object> {
+	public static class SnapshotArgumentRenderer extends ASimpleArgumentRenderer<Boolean> {
 		@Override
-		public List<String> render(IMethodArgument<Object> argument) {
-			final Stream<String> stream;
-			final Object value = argument.get();
-			if (value instanceof String[]) stream = Stream.of((String[]) value);
-			else {
-				@SuppressWarnings("unchecked")
-				final Collection<String> includes = (Collection<String>) value;
-				stream = includes.stream();
-			}
-			final String string = stream.collect(Collectors.joining(","));
-			if (string.isEmpty()) return HCollection.emptyList();
-			return HDumbCommandConverter.computeString(argument, string);
-		}
-	}
-
-	public static class SnapshotArgumentRenderer implements IArgumentRenderer<Boolean> {
-		@Override
-		public List<String> render(IMethodArgument<Boolean> argument) {
+		protected List<String> renderSimple(IMethodArgument<Boolean> argument) {
 			if (argument.get()) return HCollection.asList("versions:use-latest-snapshots", "-DallowSnapshots=true");
 			return HCollection.asList("versions:use-latest-releases");
 		}
 	}
 
-	public static class UpdateParentArgumentRenderer implements IArgumentRenderer<Boolean> {
+	public static class UpdateParentArgumentRenderer extends ASimpleArgumentRenderer<Boolean> {
 		@Override
-		public List<String> render(IMethodArgument<Boolean> argument) {
+		protected List<String> renderSimple(IMethodArgument<Boolean> argument) {
 			if (argument.get()) return HCollection.asList("versions:update-parent");
 			return HCollection.emptyList();
 		}
