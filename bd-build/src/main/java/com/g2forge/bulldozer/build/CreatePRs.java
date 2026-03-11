@@ -1,9 +1,7 @@
 package com.g2forge.bulldozer.build;
 
 import java.net.URL;
-import java.nio.file.Paths;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -25,6 +23,7 @@ import com.g2forge.alexandria.adt.graph.v1.HGraph;
 import com.g2forge.alexandria.command.command.IConstructorCommand;
 import com.g2forge.alexandria.command.command.IStandardCommand;
 import com.g2forge.alexandria.command.exit.IExit;
+import com.g2forge.alexandria.command.invocation.CommandArgument;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
 import com.g2forge.alexandria.java.fluent.optional.NullableOptional;
 import com.g2forge.alexandria.log.HLog;
@@ -51,8 +50,8 @@ public class CreatePRs implements IConstructorCommand {
 	public static final IStandardCommand COMMAND_FACTORY = IStandardCommand.of(invocation -> {
 		final String branch = new CommandLineStringInput(invocation, 1).fallback(new UserStringInput("Branch", true)).get();
 		final String title = new CommandLineStringInput(invocation, 2).fallback(new UserStringInput("Title", true)).get();
-		final Set<String> ignore = (invocation.getArguments().size() > 3) ? new HashSet<>(invocation.getArguments().subList(3, invocation.getArguments().size())) : HCollection.emptySet();
-		return new CreatePRs(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(invocation.getArguments().get(0))), branch, title, ignore);
+		final Set<String> ignore = (invocation.getArguments().size() > 3) ? invocation.getArgumentsAsArguments().subList(3, invocation.getArguments().size()).stream().map(CommandArgument::getString).collect(Collectors.toSet()) : HCollection.emptySet();
+		return new CreatePRs(new Context<BulldozerProject>(BulldozerProject::new, invocation.getArgumentsAsArguments().get(0).getPath()), branch, title, ignore);
 	});
 
 	public static void main(String[] args) throws Throwable {

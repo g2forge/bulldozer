@@ -1,6 +1,5 @@
 package com.g2forge.bulldozer.build;
 
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -36,7 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 public class CleanupPRs implements IConstructorCommand {
 	public static final IStandardCommand COMMAND_FACTORY = IStandardCommand.of(invocation -> {
 		final String branch = new CommandLineStringInput(invocation, 1).fallback(new UserStringInput("Branch", true)).get();
-		return new CleanupPRs(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(invocation.getArguments().get(0))), branch);
+		return new CleanupPRs(new Context<BulldozerProject>(BulldozerProject::new, invocation.getArgumentsAsArguments().get(0).getPath()), branch);
 	});
 
 	public static void main(String[] args) throws Throwable {

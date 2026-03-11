@@ -30,6 +30,7 @@ import com.g2forge.alexandria.adt.graph.v1.HGraph;
 import com.g2forge.alexandria.command.command.IConstructorCommand;
 import com.g2forge.alexandria.command.command.IStandardCommand;
 import com.g2forge.alexandria.command.exit.IExit;
+import com.g2forge.alexandria.command.invocation.CommandArgument;
 import com.g2forge.alexandria.java.close.ICloseable;
 import com.g2forge.alexandria.java.core.error.HError;
 import com.g2forge.alexandria.java.core.helpers.HCollection;
@@ -158,10 +159,10 @@ public class Release implements IConstructorCommand {
 	protected static final List<String> PROFILES_TO_UPDATE = Stream.of(MavenProject.Protection.values()).filter(p -> !MavenProject.Protection.Public.equals(p)).map(p -> p.name().toLowerCase()).collect(Collectors.toList());
 
 	public static final IStandardCommand COMMAND_FACTORY = IStandardCommand.of(invocation -> {
-		final List<String> arguments = invocation.getArguments();
-		final Path root = Paths.get(arguments.get(0));
-		final String issue = arguments.get(1);
-		final List<String> targets = arguments.subList(2, arguments.size());
+		final List<? extends CommandArgument<?>> arguments = invocation.getArgumentsAsArguments();
+		final Path root = arguments.get(0).getPath();
+		final String issue = arguments.get(1).getString();
+		final List<String> targets = arguments.subList(2, arguments.size()).stream().map(CommandArgument::getString).toList();
 		return new Release(new Context<ReleaseProject>(ReleaseProject::new, root), issue, targets);
 	});
 
