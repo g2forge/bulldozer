@@ -149,7 +149,7 @@ public class CreateProject implements IConstructorCommand {
 
 	public static final IStandardCommand COMMAND_FACTORY = IStandardCommand.of(invocation -> {
 		final String issue = new CommandLineStringInput(invocation, 1).fallback(new UserStringInput("Issue", true)).get();
-		return new CreateProject(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(invocation.getArguments().get(0))), issue);
+		return new CreateProject(new Context<BulldozerProject>(BulldozerProject::new, invocation.getArgumentsAsArguments().get(0).getPath()), issue);
 	});
 
 	protected static final String GITHUB_ACTOR = "GITHUB_ACTOR";

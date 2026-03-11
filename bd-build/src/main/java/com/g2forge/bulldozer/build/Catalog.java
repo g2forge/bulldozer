@@ -3,7 +3,6 @@ package com.g2forge.bulldozer.build;
 import java.io.BufferedWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -40,17 +39,17 @@ import com.g2forge.enigma.document.model.IBlock;
 import com.g2forge.enigma.document.model.Image;
 import com.g2forge.enigma.document.model.Link;
 import com.g2forge.enigma.document.model.Section;
-import com.g2forge.enigma.document.model.Span;
-import com.g2forge.enigma.document.model.Text;
 import com.g2forge.enigma.document.model.Section.SectionBuilder;
+import com.g2forge.enigma.document.model.Span;
 import com.g2forge.enigma.document.model.Span.SpanBuilder;
+import com.g2forge.enigma.document.model.Text;
 
 import lombok.Data;
 import net.sourceforge.plantuml.FileFormat;
 
 @Data
 public class Catalog implements IConstructorCommand {
-	public static final IStandardCommand COMMAND_FACTORY = IStandardCommand.of(invocation -> new Catalog(new Context<BulldozerProject>(BulldozerProject::new, Paths.get(invocation.getArguments().get(0)))));
+	public static final IStandardCommand COMMAND_FACTORY = IStandardCommand.of(invocation -> new Catalog(new Context<BulldozerProject>(BulldozerProject::new, invocation.getArgumentsAsArguments().get(0).getPath())));
 
 	public static void main(String[] args) throws Throwable {
 		IStandardCommand.main(args, COMMAND_FACTORY);
